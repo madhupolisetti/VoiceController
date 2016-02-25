@@ -1,0 +1,264 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Configuration;
+using System.Data;
+using System.Data.SqlClient;
+using System.Reflection;
+
+namespace VoiceController
+{
+    internal class ApplicationController
+    {
+        private bool isIamPolling = false;
+    private Thread pollThread = (Thread) null;
+
+    public ApplicationController()
+    {
+      this.LoadConfig();
+    }
+
+    public void Start()
+    {
+      this.LoadGateways();
+      SharedClass.RabbitMQClient.Start();
+      SharedClass.HangupProcessor.Start();
+      if (SharedClass.Listener.Ip.Length > 7 && SharedClass.Listener.Port > 0)
+        SharedClass.Listener.Initialize();
+      this.pollThread = new Thread(new ThreadStart(this.StartDbPoll));
+      this.pollThread.Name = "BulkPoller";
+      this.pollThread.Start();
+    }
+
+    public void Stop()
+    {
+      SharedClass.Logger.Info((object) "Service Stop Signal Received");
+      SharedClass.HasStopSignal = true;
+      SharedClass.RabbitMQClient.Stop();
+      while (!SharedClass.IsHangupConsumerRunning)
+      {
+        SharedClass.Logger.Info((object) "Hangup Subscriber Not Yet Stopped");
+        Thread.Sleep(1000);
+      }
+      while (!SharedClass.IsCallFlowsConsumerRunning)
+      {
+        SharedClass.Logger.Info((object) "CallFlows Subscriber Not Yet Stopped");
+        Thread.Sleep(1000);
+      }
+      SharedClass.HangupProcessor.Stop();
+      foreach (KeyValuePair<long, AccountProcessor> keyValuePair in SharedClass.ActiveAccountProcessors)
+        keyValuePair.Value.Stop();
+      foreach (KeyValuePair<int, Gateway> keyValuePair in SharedClass.GatewayMap)
+        ;
+      while (SharedClass.GatewayMap.Count > 0)
+      {
+        SharedClass.Logger.Info((object) ("Gateways Object Not Yet Cleaned, Active Gateways : " + (object) SharedClass.GatewayMap.Count));
+        Thread.Sleep(1000);
+      }
+      SharedClass.Listener.Destroy();
+      while (this.isIamPolling)
+      {
+        SharedClass.Logger.Info((object) ("DbPoller Is Sleeping, Waiting For Thread Termination : " + this.pollThread.ThreadState.ToString()));
+        if (this.pollThread.ThreadState == ThreadState.WaitSleepJoin)
+          this.pollThread.Interrupt();
+        Thread.Sleep(100);
+      }
+      SharedClass.IsServiceCleaned = true;
+    }
+
+    public void StartDbPoll()
+    {
+        long lastRequestId = 0;
+        SharedClass.Logger.Info("Started");
+        SqlCommand sqlCommand = new SqlCommand("GetPendingBulkVoiceRequests", new SqlConnection(SharedClass.ConnectionString));
+        SqlDataAdapter sqlDataAdapter = null;
+        DataSet dataSet = null;
+        while (!SharedClass.HasStopSignal)
+        {
+            try
+            {
+                this.isIamPolling = true;
+                sqlCommand.Parameters.Clear();
+                sqlCommand.Parameters.Add("@LastRequestId", SqlDbType.BigInt).Value = lastRequestId;
+                sqlDataAdapter = new SqlDataAdapter();
+                sqlDataAdapter.SelectCommand = sqlCommand;
+                dataSet = new DataSet();
+                sqlDataAdapter.Fill(dataSet);
+                if (dataSet.Tables.Count > 0 && dataSet.Tables[0].Rows.Count > 0)
+                {
+                    BulkRequest bulkRequest = null;
+                    foreach (DataRow dataRow in dataSet.Tables[0].Rows)
+                    {
+                        try
+                        {
+                            bulkRequest = new BulkRequest();
+                            bulkRequest.Id = Convert.ToInt64(dataRow["Id"].ToString());
+                            bulkRequest.Xml = dataRow["Xml"].ToString();
+                            bulkRequest.Ip = dataRow["Ip"].ToString();
+                            bulkRequest.Destinations = new StringBuilder(dataRow["Destinations"].ToString());
+                            bulkRequest.UUIDs = new StringBuilder(dataRow["UUIDs"].ToString());
+                            bulkRequest.RingUrl = dataRow["RingUrl"].ToString();
+                            bulkRequest.AnswerUrl = dataRow["AnswerUrl"].ToString();
+                            bulkRequest.HangupUrl = dataRow["HangupUrl"].ToString();
+                            bulkRequest.Retries = (short)Convert.ToSByte(dataRow["Retries"].ToString());
+                            bulkRequest.CallerId = dataRow["CallerId"].ToString();
+                            bulkRequest.Status = (short)Convert.ToSByte(dataRow["Status"].ToString());
+                            bulkRequest.ProcessedCount = Convert.ToInt32(dataRow["ProcessedCount"].ToString());
+                            bulkRequest.VoiceRequestId = Convert.ToInt64(dataRow["VoiceRequestId"].ToString());
+                            AccountProcessor accountProcessor = null;
+                            lock (SharedClass.ActiveAccountProcessors)
+                            {
+                                SharedClass.ActiveAccountProcessors.TryGetValue(Convert.ToInt64(dataRow["AccountId"].ToString()), out accountProcessor);
+                                if (accountProcessor == null)
+                                {
+                                    accountProcessor = new AccountProcessor();
+                                    accountProcessor.AccountId = Convert.ToInt64(dataRow["AccountId"].ToString());
+                                    Thread accountProcessorThread = new Thread(new ThreadStart(accountProcessor.Start));
+                                    accountProcessorThread.Name = "Account_" + dataRow["AccountId"];
+                                    accountProcessorThread.Start();
+                                }
+                                accountProcessor.EnQueue(bulkRequest);
+                            }
+                        }
+                        catch (Exception ex1)
+                        {
+                            SharedClass.Logger.Error("Error In BulkPoll For Loop : " + ex1.ToString());
+                            PropertyInfo[] properties = bulkRequest.GetType().GetProperties();
+                            try
+                            {
+                                foreach (PropertyInfo propertyInfo in properties)
+                                {
+                                    if (propertyInfo.CanRead)
+                                        SharedClass.DumpLogger.Error((object)(propertyInfo.Name + " : " + propertyInfo.GetValue(bulkRequest).ToString()));
+                                }
+                            }
+                            catch (Exception ex2)
+                            {
+                                SharedClass.Logger.Error("Error Dumping Info : " + ex2.ToString());
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                SharedClass.Logger.Error("Error In BulkPoller, " + ex.ToString());
+            }
+            finally
+            {
+                NullReferenceException referenceException;
+                try
+                {
+                    sqlDataAdapter.Dispose();
+                }
+                catch (NullReferenceException ex)
+                {
+                    referenceException = ex;
+                }
+                try
+                {
+                    dataSet.Dispose();
+                }
+                catch (NullReferenceException ex)
+                {
+                    referenceException = ex;
+                }
+                sqlDataAdapter = null;
+                dataSet = null;
+            }
+            this.isIamPolling = false;
+            try
+            {
+                Thread.Sleep(5000);
+            }
+            catch (ThreadAbortException ex)
+            {
+                SharedClass.Logger.Error(ex);
+            }
+            catch (ThreadInterruptedException ex)
+            {
+                SharedClass.Logger.Error(ex);
+            }
+        }
+    }
+
+    public void LoadGateways()
+    {
+      SharedClass.Logger.Info( "Getting Gateways");
+      SqlCommand sqlCommand = (SqlCommand) null;
+      try
+      {
+        sqlCommand = new SqlCommand("GetGateways", new SqlConnection(SharedClass.ConnectionString));
+        SqlDataAdapter sqlDataAdapter = new SqlDataAdapter();
+        DataSet dataSet = new DataSet();
+        sqlDataAdapter.Fill(dataSet);
+        if (dataSet.Tables.Count > 0 && dataSet.Tables[0].Rows.Count > 0)
+        {
+          foreach (DataRow dataRow in dataSet.Tables[0].Rows)
+          {
+            Gateway gateway = new Gateway();
+            Thread gatewayThread = null;
+            try
+            {
+              gateway.Id = (int) Convert.ToInt16(dataRow["Id"]);
+              gateway.Name = dataRow["Name"].ToString();
+              gateway.ConnectUrl = dataRow["ConnectUrl"].ToString();
+              gateway.Ip = dataRow["Ip"].ToString();
+              gateway.Port = Convert.ToInt32(dataRow["Port"]);
+              gateway.MaximumConcurrency = Convert.ToInt32(dataRow["MaximumConcurrency"]);
+              gateway.CurrenctConcurrency = Convert.ToInt32(dataRow["CurrenctConcurrency"]);
+              gateway.OriginationUrl = dataRow["OriginationUrl"].ToString();
+              if (!gateway.OriginationUrl.EndsWith("/"))
+                gateway.OriginationUrl += "/";
+              gateway.ExtraDialString = dataRow["ExtraDialString"].ToString();
+              gateway.HighPriorityQueueLastSlno = Convert.ToInt64(dataRow["HighPriorityQueueLastSlno"]);
+              gateway.MediumPriorityQueueLastSlno = Convert.ToInt64(dataRow["MediumPriorityQueueLastSlno"]);
+              gateway.LowPriorityQueueLastSlno = Convert.ToInt64(dataRow["LowPriorityQueueLastSlno"]);
+              gateway.PushThreadsTotal = (short) Convert.ToSByte(dataRow["PushThreadsTotal"]);
+              gatewayThread = new Thread(new ThreadStart(gateway.Start));
+              gatewayThread.Name = gateway.Name;
+              gatewayThread.Start();
+            }
+            catch (Exception ex)
+            {
+              SharedClass.Logger.Error("Error Starting Gateway, " + ex.ToString());
+            }
+          }
+        }
+        else
+          SharedClass.Logger.Error("No Gateways Returned From DataBase");
+      }
+      catch (Exception ex)
+      {
+        SharedClass.Logger.Error("Error Getting Gateways List, Reason : " + ex.ToString());
+      }
+    }
+
+    private void LoadConfig()
+    {
+      SharedClass.ConnectionString = ConfigurationManager.ConnectionStrings["DbConnectionString"].ConnectionString;
+      SharedClass.GatewayHeartBeatSpan = (int) Convert.ToInt16(ConfigurationManager.AppSettings["GatewayHeartBeatSpan"].ToString());
+      SharedClass.PriorityObj.HpFloor = Convert.ToSByte(ConfigurationManager.AppSettings["HP"].ToString().Split('-')[0].ToString());
+      SharedClass.PriorityObj.HpCeil = Convert.ToSByte(ConfigurationManager.AppSettings["HP"].ToString().Split('-')[1].ToString());
+      SharedClass.PriorityObj.MpFloor = Convert.ToSByte(ConfigurationManager.AppSettings["MP"].ToString().Split('-')[0].ToString());
+      SharedClass.PriorityObj.MpCeil = Convert.ToSByte(ConfigurationManager.AppSettings["MP"].ToString().Split('-')[1].ToString());
+      SharedClass.PriorityObj.LpFloor = Convert.ToSByte(ConfigurationManager.AppSettings["LP"].ToString().Split('-')[0].ToString());
+      SharedClass.PriorityObj.LpCeil = Convert.ToSByte(ConfigurationManager.AppSettings["LP"].ToString().Split('-')[1].ToString());
+      SharedClass.RabbitMQClient.Host = ConfigurationManager.AppSettings["RabbitMQHost"];
+      SharedClass.RabbitMQClient.Port = (int) Convert.ToInt16(ConfigurationManager.AppSettings["RabbitMQPort"]);
+      SharedClass.RabbitMQClient.User = ConfigurationManager.AppSettings["RabbitMQUser"];
+      SharedClass.RabbitMQClient.Password = ConfigurationManager.AppSettings["RabbitMQPassword"];
+      SharedClass.Notifier.AuthKey = ConfigurationManager.AppSettings["AuthKey"];
+      SharedClass.Notifier.AuthToken = ConfigurationManager.AppSettings["AuthToken"];
+      SharedClass.Notifier.SendAlertsTo = ConfigurationManager.AppSettings["SendAlertsTo"];
+      SharedClass.Notifier.SenderId = ConfigurationManager.AppSettings["SenderId"];
+      SharedClass.Notifier.ApiUrl = ConfigurationManager.AppSettings["ApiUrl"];
+      SharedClass.IsHangupProcessInMemory = Convert.ToBoolean(ConfigurationManager.AppSettings["IsHangupProcessInMemory"]);
+      SharedClass.Listener.Ip = ConfigurationManager.AppSettings["ListenerIp"];
+      SharedClass.Listener.Port = (int) Convert.ToInt16(ConfigurationManager.AppSettings["ListenerPort"]);
+    }
+    }
+}
