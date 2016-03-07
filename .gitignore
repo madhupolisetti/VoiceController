@@ -1,0 +1,4 @@
+*.exe
+Logs
+obj
+*.pdb

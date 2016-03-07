@@ -218,7 +218,7 @@ namespace VoiceController
                         try
                         {
                             gateway.Id = (int)Convert.ToInt16(dataRow["Id"]);
-                            gateway.Name = dataRow["Name"].ToString();
+                            gateway.Name = dataRow["Name"].ToString().Replace(" ", "");
                             gateway.ConnectUrl = dataRow["ConnectUrl"].ToString();
                             gateway.Ip = dataRow["Ip"].ToString();
                             gateway.Port = Convert.ToInt32(dataRow["Port"]);
