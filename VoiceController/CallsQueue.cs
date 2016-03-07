@@ -20,7 +20,39 @@ namespace VoiceController
             this.mpQ = new Queue<Call>();
             this.lpQ = new Queue<Call>();
         }
-
+        public int QueueCount(Priority.PriorityMode mode) {
+            int count = 0;
+            try
+            {
+                switch (mode)
+                {
+                    case Priority.PriorityMode.High:
+                        lock (this.hpQ)
+                        {
+                            count = this.hpQ.Count;
+                        }
+                        break;
+                    case Priority.PriorityMode.Medium:
+                        lock (this.mpQ)
+                        {
+                            count = this.mpQ.Count;
+                        }
+                        break;
+                    case Priority.PriorityMode.Low:
+                        lock (this.lpQ)
+                        {
+                            count = this.lpQ.Count;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            catch (Exception e) {
+                SharedClass.Logger.Error("Error Querying Queue Count : " + e.ToString());
+            }
+            return count;
+        }
         public void EnQueue(Call call, Priority.PriorityMode priority)
         {
             switch (priority)

@@ -48,6 +48,9 @@ namespace VoiceController
 
         public void Destroy()
         {
+            if (this.listener == null) {
+                return;
+            }
             try
             {
                 this.listener.Stop();

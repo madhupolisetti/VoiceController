@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace VoiceController
 {
+    [Serializable]
     public class Call
     {
         private long queueTableSlno = 0L;

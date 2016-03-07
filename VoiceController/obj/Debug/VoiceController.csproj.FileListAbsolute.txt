@@ -8,6 +8,3 @@ D:\Applications\VoiceController\VoiceController\bin\Debug\RabbitMQ.Client.dll
 D:\Applications\VoiceController\VoiceController\bin\Debug\Newtonsoft.Json.pdb
 D:\Applications\VoiceController\VoiceController\obj\Debug\VoiceController.exe
 D:\Applications\VoiceController\VoiceController\obj\Debug\VoiceController.pdb
-D:\Applications\GitRepos\VoiceController\VoiceController\bin\Debug\VoiceController.exe.config
-D:\Applications\GitRepos\VoiceController\VoiceController\obj\Debug\VoiceController.exe
-D:\Applications\GitRepos\VoiceController\VoiceController\obj\Debug\VoiceController.pdb

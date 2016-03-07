@@ -185,12 +185,12 @@ namespace VoiceController
                         SharedClass.Logger.Info("Hangup Queue Consumer Created, ConsumerTag : " + this.hangupConsumerTag);
                         this.callFlowsConsumer = new QueueingBasicConsumer(this.channel);
                         this.callFlowsConsumerTag = this.channel.BasicConsume("CallFlows", false, this.callFlowsConsumer);
-                        SharedClass.Logger.Info("CallFlows Queue Consumer Created, ConsumerTag : " + this.callFlowsConsumer);
+                        SharedClass.Logger.Info("CallFlows Queue Consumer Created, ConsumerTag : " + this.callFlowsConsumerTag);
                         if (!SharedClass.IsHangupProcessInMemory)
                         {
                             this.hangupLazyConsumer = new QueueingBasicConsumer(this.channel);
                             this.hangupLazyConsumerTag = this.channel.BasicConsume("HangupData", false, (IBasicConsumer)this.hangupLazyConsumer);
-                            SharedClass.Logger.Info("HangupLazzy Queue Consumer Created, ConsumerTag : " + (object)this.hangupLazyConsumer);
+                            SharedClass.Logger.Info("HangupLazzy Queue Consumer Created, ConsumerTag : " + (object)this.hangupLazyConsumerTag);
                         }
                         SharedClass.Logger.Info("Connected To RabbitMQ Succesfully");
                         this.isConnected = true;
