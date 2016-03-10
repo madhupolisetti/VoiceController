@@ -50,19 +50,19 @@ namespace VoiceController
                 SharedClass.GatewayMap.Add(this.id, this);
             try
             {
-                if (File.Exists(this.name + ".bin"))
+                if (File.Exists(this.name + ".ser"))
                 {
                     System.Runtime.Serialization.IFormatter formatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                    Stream stream = new FileStream(this.name + ".bin", FileMode.Open, FileAccess.Read, FileShare.Read);
+                    Stream stream = new FileStream(this.name + ".ser", FileMode.Open, FileAccess.Read, FileShare.Read);
                     CallsQueue = (CallsQueue)formatter.Deserialize(stream);
                     stream.Close();
                     SharedClass.Logger.Info("Queue DeSerialized. HpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.High) + ", MpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Medium) + ", LpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Low));
                     try
                     {
-                        File.Delete(this.name.Replace(" ", "") + ".bin");
+                        File.Delete(this.name.Replace(" ", "") + ".ser");
                     }
                     catch (Exception e) {
-                        SharedClass.Logger.Error("Error Deleting Bin File");
+                        SharedClass.Logger.Error("Error Deleting File : " + e.ToString());
                     }
                 }
                 else {
@@ -114,7 +114,7 @@ namespace VoiceController
             try
             {   
                 System.Runtime.Serialization.IFormatter formatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                Stream stream = new FileStream(this.name + ".bin", FileMode.Create, FileAccess.Write, FileShare.None);
+                Stream stream = new FileStream(this.name + ".ser", FileMode.Create, FileAccess.Write, FileShare.None);
                 formatter.Serialize(stream, this.CallsQueue);
                 stream.Close();
                 SharedClass.Logger.Info("Queue Serialized. HpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.High) + ", MpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Medium) + ", LpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Low));
@@ -230,7 +230,7 @@ namespace VoiceController
                             call.PriorityValue = Convert.ToSByte(dataRow["Priority"]);
                             this.CallsQueue.EnQueue(call, priorityMode);
                         }
-                        this.UpdateLastSlno(Priority.GetPriority(call.PriorityValue), call.QueueTableSlno);
+                        this.UpdateLastSlno(priorityMode, call.QueueTableSlno);
                         Thread.Sleep(10000);
                     }
                     else {

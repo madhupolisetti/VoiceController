@@ -19,8 +19,8 @@ namespace VoiceController
         private static ILog dumpLogger = (ILog)null;
         private static ILog heartBeatLogger = (ILog)null;
         private static bool isHangupProcessInMemory = true;
-        private static RabbitMQClient rabbitMQClient = new RabbitMQClient();
-        private static HangupProcessor hangupProcessor = new HangupProcessor();
+        private static RabbitMQClient rabbitMQClient = null;
+        private static HangupProcessor hangupProcessor = null;
         private static bool isHangupConsumerRunning = false;
         private static bool isCallFlowsConsumerRunning = false;
         private static bool isHangupLazyProcessorRunning = false;
@@ -30,6 +30,7 @@ namespace VoiceController
         private static Notifier notifier = new Notifier();
         //private static Helper helper = new Helper();
         private static Listener listener = (Listener)null;
+        private static int bulkRequestBatchCount = 500;
 
         public static string ConnectionString { get { return SharedClass.connectionString; } set { SharedClass.connectionString = value; } } 
         public static bool HasStopSignal { get { return SharedClass.hasStopSignal; } set { SharedClass.hasStopSignal = value; } } 
@@ -47,7 +48,8 @@ namespace VoiceController
         public static bool IsHangupLazyProcessorRunning { get { return SharedClass.isHangupLazyProcessorRunning; } set { SharedClass.isHangupLazyProcessorRunning = value; } } 
         public static Dictionary<int, Gateway> GatewayMap { get { return SharedClass.gatewayMap; } } 
         public static Dictionary<long, AccountProcessor> ActiveAccountProcessors { get { return SharedClass.activeAccountProcessors; } }
-        public static Notifier Notifier { get { return SharedClass.notifier; } } 
+        public static Notifier Notifier { get { return SharedClass.notifier; } }
+        public static int BulkRequestBatchCount { get { return bulkRequestBatchCount; } set { bulkRequestBatchCount = value; } }
         //public static Helper Helper
         //{
         //    get

@@ -14,7 +14,7 @@ namespace VoiceController
     internal class ApplicationController
     {
         private bool isIamPolling = false;
-        private Thread pollThread = (Thread)null;
+        private Thread pollThread = null;
 
         public ApplicationController()
         {
@@ -24,10 +24,14 @@ namespace VoiceController
         public void Start()
         {
             this.LoadGateways();
-            SharedClass.Logger.Info("Starting RabbitMQ Client");
-            SharedClass.RabbitMQClient.Start();
-            SharedClass.Logger.Info("Starting Hangup Processor");
-            SharedClass.HangupProcessor.Start();
+            if (SharedClass.RabbitMQClient != null) {
+                SharedClass.Logger.Info("Starting RabbitMQ Client");
+                SharedClass.RabbitMQClient.Start();
+            }
+            if (SharedClass.HangupProcessor != null) {
+                SharedClass.Logger.Info("Starting Hangup Processor");
+                SharedClass.HangupProcessor.Start();
+            }
             if (SharedClass.Listener.Ip.Length > 7 && SharedClass.Listener.Port > 0)
             {
                 SharedClass.Logger.Info("Starting Listener");
@@ -40,8 +44,10 @@ namespace VoiceController
         }
 
         public void Stop()
-        {   
-            SharedClass.RabbitMQClient.Stop();
+        {
+            if (SharedClass.RabbitMQClient != null) {
+                SharedClass.RabbitMQClient.Stop();
+            }
             while (SharedClass.IsHangupConsumerRunning)
             {
                 SharedClass.Logger.Info((object)"Hangup Subscriber Not Yet Stopped");
@@ -52,7 +58,9 @@ namespace VoiceController
                 SharedClass.Logger.Info((object)"CallFlows Subscriber Not Yet Stopped");
                 Thread.Sleep(1000);
             }
-            SharedClass.HangupProcessor.Stop();
+            if (SharedClass.HangupProcessor != null) {
+                SharedClass.HangupProcessor.Stop();
+            }            
             foreach (KeyValuePair<long, AccountProcessor> keyValuePair in SharedClass.ActiveAccountProcessors)
             {
                 keyValuePair.Value.Stop();
@@ -72,7 +80,7 @@ namespace VoiceController
             }
             while (this.isIamPolling)
             {
-                SharedClass.Logger.Info((object)("DbPoller Is Sleeping, Waiting For Thread Termination : " + this.pollThread.ThreadState.ToString()));
+                SharedClass.Logger.Info((object)("DbPoller Is Still Running, Thread State : " + this.pollThread.ThreadState.ToString()));
                 if (this.pollThread.ThreadState == ThreadState.WaitSleepJoin)
                     this.pollThread.Interrupt();
                 Thread.Sleep(100);
@@ -295,6 +303,8 @@ namespace VoiceController
             }
             if (ConfigurationManager.AppSettings["RabbitMQHost"] != null)
             {
+                SharedClass.RabbitMQClient = new RabbitMQClient();
+                SharedClass.HangupProcessor = new HangupProcessor();
                 SharedClass.RabbitMQClient.Host = ConfigurationManager.AppSettings["RabbitMQHost"];
                 if (ConfigurationManager.AppSettings["RabbitMQPort"] != null)
                 {
@@ -324,6 +334,9 @@ namespace VoiceController
             SharedClass.IsHangupProcessInMemory = ConfigurationManager.AppSettings["IsHangupProcessInMemory"] == null ? false : Convert.ToBoolean(ConfigurationManager.AppSettings["IsHangupProcessInMemory"]);
             SharedClass.Listener.Ip = ConfigurationManager.AppSettings["ListenerIp"] == null ? "" : ConfigurationManager.AppSettings["ListenerIp"].ToString();
             SharedClass.Listener.Port = ConfigurationManager.AppSettings["ListenerPort"] == null ? 0 : (int)Convert.ToInt16(ConfigurationManager.AppSettings["ListenerPort"]);
+            if (ConfigurationManager.AppSettings["BulkRequestBatchCount"] != null) {
+                SharedClass.BulkRequestBatchCount = Convert.ToInt16(ConfigurationManager.AppSettings["BulkRequestBatchCount"].ToString());
+            }
         }
     }
 }
