@@ -9,35 +9,11 @@ namespace VoiceController
     {
         private string ip = "";
         private int port = 0;
-        private List<string> prefixes = new List<string>();
+        private List<string> prefixes = null;
         private HttpListener listener = (HttpListener)null;
-
-        public string Ip
-        {
-            get
-            {
-                return this.ip;
-            }
-            set
-            {
-                this.ip = value;
-            }
-        }
-
-        public int Port
-        {
-            get
-            {
-                return this.port;
-            }
-            set
-            {
-                this.port = value;
-            }
-        }
-
         public void Initialize()
         {
+            this.prefixes = new List<string>();
             this.prefixes.Add("http://" + (object)this.ip + ":" + (string)(object)this.port + "/Gateways/");
             this.prefixes.Add("http://" + (object)this.ip + ":" + (string)(object)this.port + "/VoiceRequests/");
             new Thread(new ThreadStart(this.Start))
@@ -97,11 +73,13 @@ namespace VoiceController
                 }
             }
             this.listener.Start();
-            SharedClass.Logger.Info((object)"Started Listening");
+            SharedClass.Logger.Info((object)"Started Listening On " + this.ip + ":" + this.port);
             //do
             //    ;
             //while (!SharedClass.HasStopSignal);
             //SharedClass.Logger.Info((object)"Listener Exited From While Loop");
         }
+        public string Ip { get { return this.ip; } set { this.ip = value; } }
+        public int Port { get { return this.port; } set { this.port = value; } } 
     }
 }

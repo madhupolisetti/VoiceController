@@ -32,79 +32,6 @@ namespace VoiceController
         public string callFlowsConsumerTag = null;
         public string hangupLazyConsumerTag = null;
         public IBasicProperties channelProperties = null;
-
-        public string Host
-        {
-            get
-            {
-                return this.host;
-            }
-            set
-            {
-                this.host = value;
-            }
-        }
-
-        public int Port
-        {
-            get
-            {
-                return this.port;
-            }
-            set
-            {
-                this.port = value;
-            }
-        }
-
-        public string User
-        {
-            get
-            {
-                return this.user;
-            }
-            set
-            {
-                this.user = value;
-            }
-        }
-
-        public string Password
-        {
-            get
-            {
-                return this.password;
-            }
-            set
-            {
-                this.password = value;
-            }
-        }
-
-        public bool IsConnected
-        {
-            get
-            {
-                return this.isConnected;
-            }
-            set
-            {
-                this.isConnected = value;
-            }
-        }
-
-        public bool IsConnectSignalInProgress
-        {
-            get
-            {
-                return this.isConnectSignalInProgress;
-            }
-            set
-            {
-                this.isConnectSignalInProgress = value;
-            }
-        }
-
         public void Start()
         {
             this.connectThread = new Thread(new ThreadStart(this.ConnectToServer));
@@ -434,5 +361,11 @@ namespace VoiceController
                     goto retryLabel;
             }
         }
+        public string Host { get { return this.host; } set { this.host = value; } }
+        public int Port { get { return this.port; } set { this.port = value; } }
+        public string User { get { return this.user; } set { this.user = value; } }
+        public string Password { get { return this.password; } set { this.password = value; } }
+        public bool IsConnected { get { return this.isConnected; } set { this.isConnected = value; } }
+        public bool IsConnectSignalInProgress { get { return this.isConnectSignalInProgress; } set { this.isConnectSignalInProgress = value; } } 
     }
 }

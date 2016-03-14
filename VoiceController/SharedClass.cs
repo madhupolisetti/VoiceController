@@ -12,7 +12,7 @@ namespace VoiceController
     {
         private static string connectionString = (string)null;
         private static bool hasStopSignal = false;
-        private static bool isServiceCleaned = false;
+        private static bool isServiceCleaned = true;
         private static int gatewayHeartBeatSpan = 0;
         private static Priority priorityObj = (Priority)null;
         private static ILog logger = (ILog)null;

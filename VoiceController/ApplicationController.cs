@@ -23,6 +23,7 @@ namespace VoiceController
 
         public void Start()
         {
+            SharedClass.IsServiceCleaned = false;
             this.LoadGateways();
             if (SharedClass.RabbitMQClient != null) {
                 SharedClass.Logger.Info("Starting RabbitMQ Client");
