@@ -24,8 +24,9 @@ namespace VoiceController
         private int currentConcurrency = 0;
         private string originationUrl = "";
         private string extraDialString = "";
-        private long highPriorityQueueLastSlno = 0L;
-        private long mediumPriorityQueueLastSlno = 0L;
+        private long urgentPriorityQueueLastSlno = 0;
+        private long highPriorityQueueLastSlno = 0;
+        private long mediumPriorityQueueLastSlno = 0;
         private long lowPriorityQueueLastSlno = 0L;
         private short pushThreadsTotal = (short)1;
         private short pushThreadsRunning = (short)0;
@@ -36,13 +37,14 @@ namespace VoiceController
         private Mutex queueCountMutex = new Mutex();
         private Mutex pushThreadMutex = new Mutex();
         //private Thread heartBeatThread = (Thread)null;
-        private Thread hpPollThread = (Thread)null;
-        private Thread mpPollThread = (Thread)null;
-        private Thread lpPollThread = (Thread)null;
-        private Thread[] pushThreads = (Thread[])null;
-        private long minTimeTaken = 2000L;
-        private long maxTimeTaken = 0L;
-        public CallsQueue CallsQueue = (CallsQueue)null;
+        private Thread upPollThread = null;
+        private Thread hpPollThread = null;
+        private Thread mpPollThread = null;
+        private Thread lpPollThread = null;
+        private Thread[] pushThreads = null;
+        private long minTimeTaken = 2000;
+        private long maxTimeTaken = 0;
+        public CallsQueue CallsQueue = null;
         public void Start()
         {
             SharedClass.Logger.Info((object)("Loading Into GatewayMap, " + this.GetDisplayString()));
@@ -73,12 +75,15 @@ namespace VoiceController
                 SharedClass.Logger.Error("Error DeSerializing Queue : " + e.ToString());
                 CallsQueue = new CallsQueue();
             }
+            this.upPollThread = new Thread(new ParameterizedThreadStart(this.GetPendingCallsFromDataBase));
             this.hpPollThread = new Thread(new ParameterizedThreadStart(this.GetPendingCallsFromDataBase));
             this.mpPollThread = new Thread(new ParameterizedThreadStart(this.GetPendingCallsFromDataBase));
             this.lpPollThread = new Thread(new ParameterizedThreadStart(this.GetPendingCallsFromDataBase));
+            this.upPollThread.Name = this.name + "_UP_Poller";
             this.hpPollThread.Name = this.name + "_HP_Poller";
             this.mpPollThread.Name = this.name + "_MP_Poller";
             this.lpPollThread.Name = this.name + "_LP_Poller";
+            this.upPollThread.Start(Priority.PriorityMode.Urgent);
             this.hpPollThread.Start(Priority.PriorityMode.High);
             this.mpPollThread.Start(Priority.PriorityMode.Medium);
             this.lpPollThread.Start(Priority.PriorityMode.Low);
@@ -131,17 +136,17 @@ namespace VoiceController
         {
             switch (mode)
             {
+                case Priority.PriorityMode.Urgent:
+                    this.urgentPriorityQueueLastSlno = slno;
+                    break;
                 case Priority.PriorityMode.High:
-                    this.HighPriorityQueueLastSlno = slno;
-                    SharedClass.Logger.Info("HP Last Slno : " + slno);
+                    this.HighPriorityQueueLastSlno = slno;                    
                     break;
                 case Priority.PriorityMode.Medium:
-                    this.MediumPriorityQueueLastSlno = slno;
-                    SharedClass.Logger.Info("MP Last Slno : " + slno);
+                    this.MediumPriorityQueueLastSlno = slno;                    
                     break;
                 default:
-                    this.LowPriorityQueueLastSlno = slno;
-                    SharedClass.Logger.Info("LP Last Slno : " + slno);
+                    this.LowPriorityQueueLastSlno = slno;                    
                     break;
             }
         }
@@ -150,6 +155,9 @@ namespace VoiceController
             long num;
             switch (mode)
             {
+                case Priority.PriorityMode.Urgent:
+                    num = this.urgentPriorityQueueLastSlno;
+                    break;
                 case Priority.PriorityMode.High:
                     num = this.highPriorityQueueLastSlno;
                     break;
@@ -173,24 +181,24 @@ namespace VoiceController
             Call call = (Call)null;
             short floorValue = 0;
             short ceilValue = 10;
-            lock (SharedClass.PriorityObj)
-            {
-                switch (priorityMode)
-                {
-                    case Priority.PriorityMode.High:
-                        floorValue = (short)SharedClass.PriorityObj.HpFloor;
-                        ceilValue = (short)SharedClass.PriorityObj.HpCeil;
-                        break;
-                    case Priority.PriorityMode.Medium:
-                        floorValue = (short)SharedClass.PriorityObj.MpFloor;
-                        ceilValue = (short)SharedClass.PriorityObj.MpCeil;
-                        break;
-                    default:
-                        floorValue = (short)SharedClass.PriorityObj.LpFloor;
-                        ceilValue = (short)SharedClass.PriorityObj.LpCeil;
-                        break;
-                }
-            }
+            switch (priorityMode) { 
+                case Priority.PriorityMode.Urgent:
+                    floorValue = -20;
+                    ceilValue = -1;
+                    break;
+                case Priority.PriorityMode.High:
+                    floorValue = Priority.HpFloor;
+                    ceilValue = Priority.HpCeil;
+                    break;
+                case Priority.PriorityMode.Medium:
+                    floorValue = Priority.MpFloor;
+                    ceilValue = Priority.MpCeil;
+                    break;
+                default:
+                    floorValue = Priority.LpFloor;
+                    ceilValue = Priority.LpCeil;
+                    break;
+            }            
             while (!this.pushThreadMutex.WaitOne())
                 Thread.Sleep(10);
             ++this.pollThreadsRunning;

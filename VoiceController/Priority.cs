@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace VoiceController
 {
-    public class Priority
+    public static class Priority
     {
         private static sbyte hpFloor = (sbyte)0;
         private static sbyte hpCeil = (sbyte)0;
@@ -15,7 +15,7 @@ namespace VoiceController
         private static sbyte lpFloor = (sbyte)0;
         private static sbyte lpCeil = (sbyte)0;
 
-        public sbyte HpFloor
+        public static sbyte HpFloor
         {
             get
             {
@@ -27,7 +27,7 @@ namespace VoiceController
             }
         }
 
-        public sbyte HpCeil
+        public static sbyte HpCeil
         {
             get
             {
@@ -39,7 +39,7 @@ namespace VoiceController
             }
         }
 
-        public sbyte MpFloor
+        public static sbyte MpFloor
         {
             get
             {
@@ -51,7 +51,7 @@ namespace VoiceController
             }
         }
 
-        public sbyte MpCeil
+        public static sbyte MpCeil
         {
             get
             {
@@ -63,7 +63,7 @@ namespace VoiceController
             }
         }
 
-        public sbyte LpFloor
+        public static sbyte LpFloor
         {
             get
             {
@@ -75,7 +75,7 @@ namespace VoiceController
             }
         }
 
-        public sbyte LpCeil
+        public static sbyte LpCeil
         {
             get
             {
@@ -89,13 +89,25 @@ namespace VoiceController
 
         public static Priority.PriorityMode GetPriority(sbyte value)
         {
-            if ((int)value <= (int)Priority.hpCeil)
-                return Priority.PriorityMode.High;
-            return (int)value <= (int)Priority.mpCeil ? Priority.PriorityMode.Medium : Priority.PriorityMode.Low;
+            if (value < 0) {
+                return PriorityMode.Urgent;
+            }
+            if (value <= Priority.hpCeil && value >= Priority.hpFloor)
+            {
+                return PriorityMode.High;
+            }
+            else if (value <= Priority.mpCeil && value >= Priority.mpFloor)
+            {
+                return PriorityMode.Urgent;
+            }
+            else {
+                return PriorityMode.Low;
+            }            
         }
 
         public enum PriorityMode
         {
+            Urgent,
             High,
             Medium,
             Low,

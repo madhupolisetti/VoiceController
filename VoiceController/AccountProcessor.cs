@@ -17,8 +17,8 @@ namespace VoiceController
         private Queue<BulkRequest> bulkRequestsQueue = new Queue<BulkRequest>();
         private Mutex queueMutex = new Mutex();
         private bool shouldIProcess = false;
-        private short maxThreads = (short)1;
-        private short activeThreads = (short)0;
+        private short maxThreads = 1;
+        private short activeThreads = 0;
 
         public AccountProcessor() {
             this.maxThreads = GetConcurrentThreads();
@@ -39,7 +39,7 @@ namespace VoiceController
                     }
                 }
                 Thread.Sleep(2000);
-                if ((int)this.ActiveThreads == 0 && this.QueueCount() == 0)
+                if (this.ActiveThreads == 0 && this.QueueCount() == 0)
                     this.Stop();
             }
         }

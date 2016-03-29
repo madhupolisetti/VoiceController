@@ -10,12 +10,14 @@ namespace VoiceController
     [Serializable]
     public class CallsQueue
     {
-        private Queue<Call> hpQ = (Queue<Call>)null;
-        private Queue<Call> mpQ = (Queue<Call>)null;
-        private Queue<Call> lpQ = (Queue<Call>)null;
+        private Queue<Call> upQ = null;
+        private Queue<Call> hpQ = null;
+        private Queue<Call> mpQ = null;
+        private Queue<Call> lpQ = null;
 
         public CallsQueue()
         {
+            this.upQ = new Queue<Call>();
             this.hpQ = new Queue<Call>();
             this.mpQ = new Queue<Call>();
             this.lpQ = new Queue<Call>();
@@ -25,7 +27,12 @@ namespace VoiceController
             try
             {
                 switch (mode)
-                {
+                {       
+                    case Priority.PriorityMode.Urgent:
+                        lock (this.upQ) {
+                            count = this.upQ.Count;
+                        }
+                        break;
                     case Priority.PriorityMode.High:
                         lock (this.hpQ)
                         {
@@ -57,108 +64,59 @@ namespace VoiceController
         {
             switch (priority)
             {
+                case Priority.PriorityMode.Urgent:
+                    lock (this.upQ) {
+                        this.upQ.Enqueue(call);
+                    }
+                    break;
                 case Priority.PriorityMode.High:
                     lock (this.hpQ)
                     {
-                        this.hpQ.Enqueue(call);
-                        break;
+                        this.hpQ.Enqueue(call);                        
                     }
+                    break;
                 case Priority.PriorityMode.Medium:
                     lock (this.mpQ)
                     {
-                        this.mpQ.Enqueue(call);
-                        break;
+                        this.mpQ.Enqueue(call);                        
                     }
+                    break;
                 default:
                     lock (this.lpQ)
                     {
-                        this.lpQ.Enqueue(call);
-                        break;
+                        this.lpQ.Enqueue(call);                        
                     }
+                    break;
             }
         }
 
         public Call DeQueue()
         {
-            //Call call = null;
-            //try
-            //{
-            //    lock (this.hpQ)
-            //    {
-            //        if (this.hpQ.Count > 0)
-            //        {
-            //            call = this.hpQ.Dequeue();
-            //        }
-            //    }
-            //    if (call == null) {
-            //        lock (this.mpQ) {
-            //            if (this.mpQ.Count > 0) {
-            //                call = this.mpQ.Dequeue();
-            //            }
-            //        }
-            //    }
-            //    if (call == null) {
-            //        lock (this.lpQ) {
-            //            if (this.lpQ.Count > 0) {
-            //                call = this.lpQ.Dequeue();
-            //            }
-            //        }
-            //    }
-            //}
-            //catch (Exception e) { 
-
-            //}            
-            Call call = (Call)null;
+            Call call = null;
             try
             {
-                bool lockTaken1 = false;
-                Queue<Call> queue = null;
-                try
-                {
-                    Monitor.Enter((object)(queue = this.hpQ), ref lockTaken1);
-                    if (this.hpQ.Count > 0)
+                if (this.QueueCount(Priority.PriorityMode.Urgent) > 0) {
+                    lock (this.upQ) {
+                        call = this.upQ.Dequeue();
+                    }
+                }
+                else if (this.QueueCount(Priority.PriorityMode.High) > 0) {
+                    lock (this.hpQ) {
                         call = this.hpQ.Dequeue();
-                }
-                finally
-                {
-                    if (lockTaken1)
-                        Monitor.Exit((object)queue);
-                }
-                if (call == null)
-                {
-                    bool lockTaken2 = false;
-                    try
-                    {
-                        Monitor.Enter((object)(queue = this.mpQ), ref lockTaken2);
-                        if (this.mpQ.Count > 0)
-                            call = this.mpQ.Dequeue();
-                    }
-                    finally
-                    {
-                        if (lockTaken2)
-                            Monitor.Exit((object)queue);
                     }
                 }
-                if (call == null)
-                {
-                    bool lockTaken2 = false;
-                    try
-                    {
-                        Monitor.Enter((object)(queue = this.lpQ), ref lockTaken2);
-                        if (this.lpQ.Count > 0)
-                            call = this.lpQ.Dequeue();
+                else if (this.QueueCount(Priority.PriorityMode.Medium) > 0) {
+                    lock (this.mpQ) {
+                        call = this.mpQ.Dequeue();
                     }
-                    finally
-                    {
-                        if (lockTaken2)
-                            Monitor.Exit((object)queue);
-                    }
+                }
+                else if (this.QueueCount(Priority.PriorityMode.Low) > 0) {
+                    call = this.lpQ.Dequeue();
                 }
             }
-            catch (Exception ex)
-            {
-                SharedClass.Logger.Error(ex);
-            }
+            catch (Exception e) {
+                SharedClass.Logger.Error("Error DeQueuing Call : " + e.ToString());
+            }            
             return call;
         }
     }

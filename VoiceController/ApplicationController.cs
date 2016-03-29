@@ -274,33 +274,33 @@ namespace VoiceController
             }
             if (ConfigurationManager.AppSettings["HP"] == null)
             {
-                SharedClass.PriorityObj.HpFloor = 1;
-                SharedClass.PriorityObj.HpCeil = 3;
+                Priority.HpFloor = 1;
+                Priority.HpCeil = 3;
             }
             else
             {
-                SharedClass.PriorityObj.HpFloor = Convert.ToSByte(ConfigurationManager.AppSettings["HP"].ToString().Split('-')[0].ToString());
-                SharedClass.PriorityObj.HpCeil = Convert.ToSByte(ConfigurationManager.AppSettings["HP"].ToString().Split('-')[1].ToString());
+                Priority.HpFloor = Convert.ToSByte(ConfigurationManager.AppSettings["HP"].ToString().Split('-')[0].ToString());
+                Priority.HpCeil = Convert.ToSByte(ConfigurationManager.AppSettings["HP"].ToString().Split('-')[1].ToString());
             }
             if (ConfigurationManager.AppSettings["MP"] == null)
             {
-                SharedClass.PriorityObj.MpFloor = 4;
-                SharedClass.PriorityObj.MpCeil = 7;
+                Priority.MpFloor = 4;
+                Priority.MpCeil = 7;
             }
             else
             {
-                SharedClass.PriorityObj.MpFloor = Convert.ToSByte(ConfigurationManager.AppSettings["MP"].ToString().Split('-')[0].ToString());
-                SharedClass.PriorityObj.MpCeil = Convert.ToSByte(ConfigurationManager.AppSettings["MP"].ToString().Split('-')[1].ToString());
+                Priority.MpFloor = Convert.ToSByte(ConfigurationManager.AppSettings["MP"].ToString().Split('-')[0].ToString());
+                Priority.MpCeil = Convert.ToSByte(ConfigurationManager.AppSettings["MP"].ToString().Split('-')[1].ToString());
             }
             if (ConfigurationManager.AppSettings["LP"] == null)
             {
-                SharedClass.PriorityObj.LpFloor = 8;
-                SharedClass.PriorityObj.LpCeil = 10;
+                Priority.LpFloor = 8;
+                Priority.LpCeil = 10;
             }
             else
             {
-                SharedClass.PriorityObj.LpFloor = Convert.ToSByte(ConfigurationManager.AppSettings["LP"].ToString().Split('-')[0].ToString());
-                SharedClass.PriorityObj.LpCeil = Convert.ToSByte(ConfigurationManager.AppSettings["LP"].ToString().Split('-')[1].ToString());
+                Priority.LpFloor = Convert.ToSByte(ConfigurationManager.AppSettings["LP"].ToString().Split('-')[0].ToString());
+                Priority.LpCeil = Convert.ToSByte(ConfigurationManager.AppSettings["LP"].ToString().Split('-')[1].ToString());
             }
             if (ConfigurationManager.AppSettings["RabbitMQHost"] != null)
             {

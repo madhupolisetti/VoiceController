@@ -13,8 +13,7 @@ namespace VoiceController
         private static string connectionString = (string)null;
         private static bool hasStopSignal = false;
         private static bool isServiceCleaned = true;
-        private static int gatewayHeartBeatSpan = 0;
-        private static Priority priorityObj = (Priority)null;
+        private static int gatewayHeartBeatSpan = 0;        
         private static ILog logger = (ILog)null;
         private static ILog dumpLogger = (ILog)null;
         private static ILog heartBeatLogger = (ILog)null;
@@ -35,7 +34,7 @@ namespace VoiceController
         public static string ConnectionString { get { return SharedClass.connectionString; } set { SharedClass.connectionString = value; } } 
         public static bool HasStopSignal { get { return SharedClass.hasStopSignal; } set { SharedClass.hasStopSignal = value; } } 
         public static bool IsServiceCleaned { get { return SharedClass.isServiceCleaned; } set { SharedClass.isServiceCleaned = value; } } 
-        public static Priority PriorityObj { get { if (SharedClass.priorityObj == null) SharedClass.priorityObj = new Priority(); return SharedClass.priorityObj; } set { SharedClass.priorityObj = value; } } 
+        //public static Priority PriorityObj { get { if (SharedClass.priorityObj == null) SharedClass.priorityObj = new Priority(); return SharedClass.priorityObj; } set { SharedClass.priorityObj = value; } } 
         public static ILog Logger { get { return SharedClass.logger; } } 
         public static ILog DumpLogger { get { return SharedClass.dumpLogger; } } 
         public static ILog HeartBeatLogger { get { return SharedClass.heartBeatLogger; } } 
