@@ -58,7 +58,7 @@ namespace VoiceController
                     Stream stream = new FileStream(this.name + ".ser", FileMode.Open, FileAccess.Read, FileShare.Read);
                     CallsQueue = (CallsQueue)formatter.Deserialize(stream);
                     stream.Close();
-                    SharedClass.Logger.Info("Queue DeSerialized. HpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.High) + ", MpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Medium) + ", LpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Low));
+                    SharedClass.Logger.Info("Queue DeSerialized. UpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Urgent) + ", HpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.High) + ", MpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Medium) + ", LpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Low));
                     try
                     {
                         File.Delete(this.name.Replace(" ", "") + ".ser");
@@ -117,12 +117,13 @@ namespace VoiceController
                 Thread.Sleep(2000);
             }
             try
-            {   
+            {
+                SharedClass.Logger.Info("Serializing Queue. UpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Urgent) + ", HpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.High) + ", MpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Medium) + ", LpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Low));
                 System.Runtime.Serialization.IFormatter formatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
                 Stream stream = new FileStream(this.name + ".ser", FileMode.Create, FileAccess.Write, FileShare.None);
                 formatter.Serialize(stream, this.CallsQueue);
                 stream.Close();
-                SharedClass.Logger.Info("Queue Serialized. HpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.High) + ", MpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Medium) + ", LpQ : " + this.CallsQueue.QueueCount(Priority.PriorityMode.Low));
+                SharedClass.Logger.Info("Queue Serialization Successful");
             }
             catch (Exception e) {
                 SharedClass.Logger.Error("Error Serializing Queue : " + e.ToString());
@@ -183,8 +184,8 @@ namespace VoiceController
             short ceilValue = 10;
             switch (priorityMode) { 
                 case Priority.PriorityMode.Urgent:
-                    floorValue = -20;
-                    ceilValue = -1;
+                    floorValue = 0;
+                    ceilValue = 0;
                     break;
                 case Priority.PriorityMode.High:
                     floorValue = Priority.HpFloor;

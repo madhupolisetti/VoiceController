@@ -8,12 +8,12 @@ namespace VoiceController
 {
     public static class Priority
     {
-        private static sbyte hpFloor = (sbyte)0;
-        private static sbyte hpCeil = (sbyte)0;
-        private static sbyte mpFloor = (sbyte)0;
-        private static sbyte mpCeil = (sbyte)0;
-        private static sbyte lpFloor = (sbyte)0;
-        private static sbyte lpCeil = (sbyte)0;
+        private static sbyte hpFloor = 0;
+        private static sbyte hpCeil = 0;
+        private static sbyte mpFloor = 0;
+        private static sbyte mpCeil = 0;
+        private static sbyte lpFloor = 0;
+        private static sbyte lpCeil = 0;
 
         public static sbyte HpFloor
         {
@@ -89,7 +89,7 @@ namespace VoiceController
 
         public static Priority.PriorityMode GetPriority(sbyte value)
         {
-            if (value < 0) {
+            if (value == 0) {
                 return PriorityMode.Urgent;
             }
             if (value <= Priority.hpCeil && value >= Priority.hpFloor)
@@ -102,7 +102,7 @@ namespace VoiceController
             }
             else {
                 return PriorityMode.Low;
-            }            
+            }
         }
 
         public enum PriorityMode
