@@ -40,7 +40,7 @@ namespace VoiceController
             } 
             this.pollThread = new Thread(new ThreadStart(this.StartDbPoll));
             this.pollThread.Name = "BulkPoller";
-            SharedClass.Logger.Info("Starting Poller");
+            SharedClass.Logger.Info("Starting BulkPoller");
             this.pollThread.Start();
         }
 
