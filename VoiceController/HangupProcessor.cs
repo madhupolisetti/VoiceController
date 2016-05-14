@@ -35,7 +35,7 @@ namespace VoiceController
         public void Start()
         {
             this.sqlCon = new SqlConnection(SharedClass.ConnectionString);
-            this.sqlCmd = new SqlCommand("CallHangupProcessor", this.sqlCon);
+            this.sqlCmd = new SqlCommand("VC_Call_Hangup_Processor", this.sqlCon);
             this.xmlDoc = new XmlDocument();
             this.rootElement = this.xmlDoc.CreateElement("Call");
             this.xmlDoc.AppendChild((XmlNode)this.rootElement);
@@ -48,7 +48,7 @@ namespace VoiceController
         {
             while (this.IsRunning)
             {
-                SharedClass.Logger.Info((object)"HangupProcesser Not Yet Stopped");
+                SharedClass.Logger.Info("HangupProcesser Not Yet Stopped");
                 Thread.Sleep(1000);
             }
             if (!SharedClass.IsHangupProcessInMemory || this.QueueCount() <= 0)
@@ -84,7 +84,7 @@ namespace VoiceController
                                     this.sqlCon.Open();
                                 this.sqlCmd.Parameters.Clear();
                                 this.sqlCmd.CommandType = CommandType.StoredProcedure;
-                                this.sqlCmd.Parameters.Add("@Data", SqlDbType.VarChar, this.xmlDoc.InnerXml.Length).Value = (object)this.xmlDoc.InnerXml;
+                                this.sqlCmd.Parameters.Add("@Data", SqlDbType.VarChar, this.xmlDoc.InnerXml.Length).Value = this.xmlDoc.InnerXml;
                                 this.sqlCmd.Parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
                                 this.sqlCmd.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
                                 this.sqlCmd.ExecuteNonQuery();
@@ -95,10 +95,8 @@ namespace VoiceController
                             {
                                 SharedClass.Logger.Error("Error Processing Hangup Data, Reason : " + ex.ToString());
                                 ++this.retryAttempt;
-                                if ((int)this.retryAttempt < 3)
-                                {
-                                    SharedClass.Logger.Info("Retry Attempt : " + (object)this.retryAttempt);
-                                }
+                                if (this.retryAttempt < 3)
+                                    SharedClass.Logger.Info("Retry Attempt : " + this.retryAttempt);
                                 else
                                 {
                                     SharedClass.Logger.Info("Max Retry Attempts Reached. Ignoring Object : " + this.hangupData.ToString());
@@ -156,18 +154,19 @@ namespace VoiceController
                                 try
                                 {
                                     this.rootElement.Attributes.RemoveAll();
-                                    foreach (JProperty jproperty in this.hangupData.Properties())
+                                    foreach (JProperty jproperty in ((JObject)this.hangupData.SelectToken("smscresponse")).Properties())
                                         this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
                                     if (this.sqlCon.State != ConnectionState.Open)
                                         this.sqlCon.Open();
                                     this.sqlCmd.Parameters.Clear();
                                     this.sqlCmd.CommandType = CommandType.StoredProcedure;
+                                    SharedClass.Logger.Info("Data to db : " + this.xmlDoc.InnerXml);
                                     SqlParameterCollection parameters = this.sqlCmd.Parameters;
-                                    parameters.Add("@Data", SqlDbType.VarChar, -1).Value = (object)this.xmlDoc.InnerXml;
-                                    parameters.Add("@RetVal", SqlDbType.TinyInt).Direction = ParameterDirection.Output;
-                                    parameters.Add("@RetMessage", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+                                    parameters.Add("@Data", SqlDbType.VarChar, -1).Value = this.xmlDoc.InnerXml;
+                                    parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
+                                    parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
                                     this.sqlCmd.ExecuteNonQuery();
-                                    this.hangupData = (JObject)null;
+                                    this.hangupData = null;
                                     break;
                                 }
                                 catch (Exception ex)
@@ -176,7 +175,7 @@ namespace VoiceController
                                     ++this.retryAttempt;
                                     if ((int)this.retryAttempt < 3)
                                     {
-                                        SharedClass.Logger.Info("Retry Attempt : " + (object)this.retryAttempt);
+                                        SharedClass.Logger.Info("Retry Attempt : " + this.retryAttempt);
                                     }
                                     else
                                     {

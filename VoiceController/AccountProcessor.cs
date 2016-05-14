@@ -28,7 +28,7 @@ namespace VoiceController
             SharedClass.Logger.Info("Started");
             while (this.shouldIProcess && !SharedClass.HasStopSignal)
             {
-                if (this.QueueCount() > 0 && (int)this.ActiveThreads < (int)this.maxThreads)
+                if (this.QueueCount() > 0 && this.ActiveThreads < this.maxThreads)
                 {
                     BulkRequest bulkRequest = this.DeQueue();
                     if (bulkRequest != null)
@@ -131,7 +131,7 @@ namespace VoiceController
 
         private JObject ProcessChunk(BulkRequest bulkRequest, System.Data.DataTable mobileUUIDsTable) {
             SqlConnection sqlCon = new SqlConnection(SharedClass.ConnectionString);
-            SqlCommand sqlCmd = new SqlCommand("CreateCall", sqlCon);
+            SqlCommand sqlCmd = new SqlCommand("Create_Call", sqlCon);
             short retryAttempt = 0;
             retryLabel:
             try

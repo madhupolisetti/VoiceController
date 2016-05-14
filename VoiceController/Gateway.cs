@@ -22,8 +22,11 @@ namespace VoiceController
         private int port = 0;
         private int maximumConcurrency = 0;
         private int currentConcurrency = 0;
-        private string originationUrl = "";
-        private string extraDialString = "";
+        private string originationUrl = string.Empty;
+        private string extraDialString = string.Empty;
+        private string countryPrefix = string.Empty;
+        private bool isCountryPrefixAllowed = true;
+        private string dialPrefix = string.Empty;
         private long urgentPriorityQueueLastSlno = 0;
         private long highPriorityQueueLastSlno = 0;
         private long mediumPriorityQueueLastSlno = 0;
@@ -36,7 +39,7 @@ namespace VoiceController
         private Mutex concurrencyMutex = new Mutex();
         private Mutex queueCountMutex = new Mutex();
         private Mutex pushThreadMutex = new Mutex();
-        //private Thread heartBeatThread = (Thread)null;
+        private Thread heartBeatThread = null;
         private Thread upPollThread = null;
         private Thread hpPollThread = null;
         private Thread mpPollThread = null;
@@ -47,9 +50,10 @@ namespace VoiceController
         public CallsQueue CallsQueue = null;
         public void Start()
         {
-            SharedClass.Logger.Info((object)("Loading Into GatewayMap, " + this.GetDisplayString()));
-            lock (SharedClass.GatewayMap)
+            SharedClass.Logger.Info("Loading Into GatewayMap, " + this.GetDisplayString());
+            lock (SharedClass.GatewayMap) {
                 SharedClass.GatewayMap.Add(this.id, this);
+            }
             try
             {
                 if (File.Exists(this.name + ".ser"))
@@ -92,8 +96,11 @@ namespace VoiceController
             {
                 this.pushThreads[index - 1] = new Thread(new ThreadStart(this.StartPushing));
                 this.pushThreads[index - 1].Name = this.name + "_Push_" + index;
-                //this.pushThreads[index - 1].Start();
+                this.pushThreads[index - 1].Start();
             }
+            heartBeatThread = new Thread(new ThreadStart(HeartBeat));
+            heartBeatThread.Name = this.name + "_HB";
+            heartBeatThread.Start();
         }
 
         public void Stop()
@@ -101,12 +108,17 @@ namespace VoiceController
             SharedClass.Logger.Info("Stopping");
             this.shouldIPoll = false;
             this.shouldIProcess = false;
-            Thread.Sleep(500);            
+            Thread.Sleep(500);
             for (short index = 0; index < this.pushThreads.Count(); ++index)
             {
                 //Enumerable.Count<Thread>((IEnumerable<Thread>)this.pushThreads
                 while (this.pushThreads[index].ThreadState == ThreadState.WaitSleepJoin)
+                {
                     this.pushThreads[index].Interrupt();
+                    SharedClass.Logger.Info("PushThread : " + this.pushThreads[index].Name + " Is Running, ThreadState : " + this.pushThreads[index].ThreadState.ToString());
+                    Thread.Sleep(2000);
+                }                
+                Thread.Sleep(2000);
             }
             while (this.pushThreadsRunning > 0) {
                 SharedClass.Logger.Info("Still " + this.pushThreadsRunning + " Push Threads Running");
@@ -132,7 +144,6 @@ namespace VoiceController
                 SharedClass.GatewayMap.Remove(this.id);
             }
         }
-
         private void UpdateLastSlno(Priority.PriorityMode mode, long slno)
         {
             switch (mode)
@@ -177,9 +188,9 @@ namespace VoiceController
             SqlConnection connection = new SqlConnection(SharedClass.ConnectionString);
             SqlCommand sqlCommand = new SqlCommand("GetCallingData", connection);
             sqlCommand.CommandType = CommandType.StoredProcedure;
-            SqlDataAdapter da = (SqlDataAdapter)null;
-            DataSet ds = (DataSet)null;
-            Call call = (Call)null;
+            SqlDataAdapter da = null;
+            DataSet ds = null;
+            Call call = null;
             short floorValue = 0;
             short ceilValue = 10;
             switch (priorityMode) { 
@@ -199,17 +210,21 @@ namespace VoiceController
                     floorValue = Priority.LpFloor;
                     ceilValue = Priority.LpCeil;
                     break;
-            }            
+            }
             while (!this.pushThreadMutex.WaitOne())
-                Thread.Sleep(10);
+            {
+                Thread.Sleep(100);
+                SharedClass.Logger.Info("Waiting for pushThreadMutex to increase pollthreadscount");
+            } 
             ++this.pollThreadsRunning;
             this.pushThreadMutex.ReleaseMutex();
-            SharedClass.Logger.Info((object)"Started");
+            SharedClass.Logger.Info("Started");
             while (this.shouldIPoll && !SharedClass.HasStopSignal)
             {
                 try
                 {
                     sqlCommand.Parameters.Clear();
+                    sqlCommand.Parameters.Add("@GatewayId", SqlDbType.Int).Value = this.id;
                     sqlCommand.Parameters.Add("@LastSlno", SqlDbType.BigInt).Value = this.GetLastSlno(priorityMode);
                     sqlCommand.Parameters.Add("@FloorValue", SqlDbType.TinyInt).Value = floorValue;
                     sqlCommand.Parameters.Add("@CeilValue", SqlDbType.TinyInt).Value = ceilValue;
@@ -225,7 +240,7 @@ namespace VoiceController
                         {
                             call = new Call();
                             call.QueueTableSlno = Convert.ToInt64(dataRow["Id"]);
-                            call.MobileId = Convert.ToInt64(dataRow["MobileId"]);
+                            call.CallId = Convert.ToInt64(dataRow["CallId"]);
                             call.AccountId = Convert.ToInt64(dataRow["AccountId"]);
                             call.UUID = dataRow["UUID"].ToString();
                             call.CallerId = dataRow["CallerId"].ToString();
@@ -254,7 +269,7 @@ namespace VoiceController
                 }
                 catch (Exception ex)
                 {
-                    SharedClass.Logger.Error((object)("Error In Polling, " + ex.ToString()));
+                    SharedClass.Logger.Error(("Error In Polling, " + ex.ToString()));
                 }
                 finally
                 {
@@ -263,12 +278,15 @@ namespace VoiceController
                 }
             }
             SharedClass.Logger.Info("Stopped Polling, ShouldIPoll : " + this.shouldIPoll + ", Has Stop Signal : " + SharedClass.HasStopSignal);
-            while (!this.pushThreadMutex.WaitOne())
-                Thread.Sleep(10);
+            while (!this.pushThreadMutex.WaitOne()) {
+                Thread.Sleep(100);
+                SharedClass.Logger.Info("Waiting for pushThreadMutex to decrease pollThreadsRunning count");
+            }
             --this.pollThreadsRunning;
             this.pushThreadMutex.ReleaseMutex();
-            if (SharedClass.HasStopSignal)
+            if (SharedClass.HasStopSignal) {
                 return;
+            }   
             string str = this.GetDisplayString() + " ";
             string text;
             switch (priorityMode)
@@ -283,22 +301,26 @@ namespace VoiceController
                     text = str + "LP Poller Stopped";
                     break;
             }
-            lock (SharedClass.Notifier)
+            lock (SharedClass.Notifier) {
                 SharedClass.Notifier.SendSms(text);
+            }
         }
         private void StartPushing()
         {
             int loopCount = 0;
-            while (!this.pushThreadMutex.WaitOne())
+            long startTime = 0;
+            long timeTaken = 0;
+            while (!this.pushThreadMutex.WaitOne()) {
                 Thread.Sleep(10);
+            }
             ++this.pushThreadsRunning;
             this.pushThreadMutex.ReleaseMutex();
             SharedClass.Logger.Info("Started");
+            Call call = null;
             while (this.shouldIProcess)
-            {
+            {   
                 try
-                {
-                    Call call;
+                {   
                     if ((call = this.CallsQueue.DeQueue()) == null)
                     {
                         try
@@ -307,12 +329,18 @@ namespace VoiceController
                         }
                         catch (ThreadInterruptedException e) { }
                     }
-                    else if (this.ShouldIPushCall())
+                    else
                     {
                         this.WaitForLines();
-                        long startTime = SharedClass.CurrentTimeStamp();
+                        if (!this.ShouldIPushCall()) {
+                            this.CallsQueue.EnQueue(call, Priority.GetPriority(call.PriorityValue));
+                            call = null;
+                            continue;
+                        }
+                        startTime = SharedClass.CurrentTimeStamp();
                         this.ProcessCall(call);
-                        long timeTaken = SharedClass.CurrentTimeStamp() - startTime;
+                        timeTaken = SharedClass.CurrentTimeStamp() - startTime;
+                        call = null;
                         if (timeTaken < this.minTimeTaken)
                             this.minTimeTaken = timeTaken;
                         if (timeTaken > this.maxTimeTaken)
@@ -329,30 +357,40 @@ namespace VoiceController
                 {
                     SharedClass.Logger.Error("Error In While Loop, " + ex.ToString());
                 }
+                finally {
+                    if (call != null) {
+                        this.CallsQueue.EnQueue(call, Priority.GetPriority(call.PriorityValue));
+                    }
+                }
             }
             SharedClass.Logger.Info("Exited From While Loop and is about to die");
-            while (!this.pushThreadMutex.WaitOne())
+            while (!this.pushThreadMutex.WaitOne()) {
                 Thread.Sleep(10);
+            }   
             --this.pushThreadsRunning;
             this.pushThreadMutex.ReleaseMutex();
         }
         public void ProcessCall(Call call)
         {
-            HttpWebRequest request = (HttpWebRequest)null;
-            HttpWebResponse response = (HttpWebResponse)null;
-            StreamReader streamReader = (StreamReader)null;
-            StreamWriter streamWriter = (StreamWriter)null;
-            Exception exception;
+            HttpWebRequest request = null;
+            HttpWebResponse response = null;
+            StreamReader streamReader = null;
+            StreamWriter streamWriter = null;
             try
             {
-                string payload = "From=" + call.CallerId + "&To=" + call.Destination + "&OriginationUUID=" + call.UUID + "&Gateways=" + this.OriginationUrl + "&SequenceNumber=" + call.MobileId + "&AnswerUrl=" + call.AnswerUrl + "&HangupUrl=" + call.HangupUrl;
+                if (!this.IsCountryPrefixAllowed && this.dialPrefix.Length > 0 && this.countryPrefix.Length > 0 && call.Destination.StartsWith(this.countryPrefix))
+                    call.Destination = this.dialPrefix + call.Destination.Substring(this.countryPrefix.Length);
+                string payload = "From=" + call.CallerId + "&To=" + call.Destination + "&OriginationUUID=" + call.UUID + "&Gateways=" + this.OriginationUrl;
+                payload += "&SequenceNumber=" + call.CallId + "&AnswerUrl=" + call.AnswerUrl + "&HangupUrl=" + ((call.HangupUrl != null && call.HangupUrl.Trim().Length > 0) ? call.HangupUrl : call.AnswerUrl);
+                payload += "&NotifyCallFlow=RMQ&CallBackByRMQ=1&GwID=" + this.id.ToString() + "&";
                 if (call.RingUrl.Length > 0)
                     payload = payload + "&RingUrl=" + call.RingUrl;
                 payload += "&ActionMethod=POST";
                 if (call.Xml.Length > 0)
-                    payload += "&AnswerXml=" + call.Xml;
+                    payload += "&AnswerXml=" + call.Xml;                
                 if (this.ExtraDialString.Length > 0)
-                    payload += "&ExtraDialString=" + this.ExtraDialString;
+                    payload += "&ExtraDialString=" + this.ExtraDialString;                
+                SharedClass.Logger.Info(payload);
                 request = (HttpWebRequest)WebRequest.Create(this.ConnectUrl + "Call/");
                 request.Method = "POST";
                 request.Proxy = null;
@@ -369,9 +407,8 @@ namespace VoiceController
                 this.UpdateConcurrency(false, 1);
             }
             catch (Exception ex)
-            {
-                exception = ex;
-                SharedClass.Logger.Info("Error Processing Call : " + call.PrintMe());
+            {   
+                SharedClass.Logger.Info("Error Processing Call : " + call.PrintMe() + ", Reason : " + ex.ToString());
             }
             finally
             {
@@ -385,7 +422,7 @@ namespace VoiceController
                 }
                 catch (Exception ex)
                 {
-                    exception = ex;
+                    
                 }
             }
         }
@@ -415,16 +452,22 @@ namespace VoiceController
         }
         public void WaitForLines()
         {
+            long waitLoopCount = 0;
             while (this.currentConcurrency >= this.maximumConcurrency)
-            {
-                SharedClass.Logger.Info((object)string.Concat(new object[4]
-        {
-          (object) "Waiting For Lines. Max ",
-          (object) this.maximumConcurrency,
-          (object) ", Current : ",
-          (object) this.currentConcurrency
-        }));
+            {   
                 Thread.Sleep(2000);
+                SharedClass.Logger.Info("Waiting For Lines. Max : " + this.maximumConcurrency.ToString() + ", Current : " + this.currentConcurrency.ToString());
+                ++waitLoopCount;
+                if (waitLoopCount == 90) {
+                    SharedClass.Logger.Info("Waiting For Lines. Max : " + this.maximumConcurrency.ToString() + ", Current : " + this.currentConcurrency.ToString());
+                    waitLoopCount = 1;
+                }
+            }
+        }
+        protected void HeartBeat() {
+            while (!SharedClass.HasStopSignal) {
+                SharedClass.Logger.Info("Max : " + this.maximumConcurrency.ToString() + ", Current : " + this.currentConcurrency.ToString() + ", Available : " + (this.maximumConcurrency - this.currentConcurrency).ToString());
+                Thread.Sleep(SharedClass.GatewayHeartBeatSpan * 1000);
             }
         }
         public string GetDisplayString()
@@ -433,65 +476,11 @@ namespace VoiceController
         }
         
         #region "PROPERTIES"
-        public int Id
-        {
-            get
-            {
-                return this.id;
-            }
-            set
-            {
-                this.id = value;
-            }
-        }
-
-        public string Name
-        {
-            get
-            {
-                return this.name;
-            }
-            set
-            {
-                this.name = value;
-            }
-        }
-
-        public string ConnectUrl
-        {
-            get
-            {
-                return this.connectUrl;
-            }
-            set
-            {
-                this.connectUrl = value;
-            }
-        }
-
-        public string Ip
-        {
-            get
-            {
-                return this.ip;
-            }
-            set
-            {
-                this.ip = value;
-            }
-        }
-
-        public int Port
-        {
-            get
-            {
-                return this.port;
-            }
-            set
-            {
-                this.port = value;
-            }
-        }
+        public int Id { get { return this.id; } set { this.id = value; } } 
+        public string Name { get { return this.name; } set { this.name = value; } } 
+        public string ConnectUrl { get { return this.connectUrl; } set { this.connectUrl = value; } } 
+        public string Ip { get { return this.ip; } set { this.ip = value; } } 
+        public int Port { get { return this.port; } set { this.port = value; } }
 
         public int MaximumConcurrency
         {
@@ -540,43 +529,12 @@ namespace VoiceController
                 this.extraDialString = value;
             }
         }
-
-        public long HighPriorityQueueLastSlno
-        {
-            get
-            {
-                return this.highPriorityQueueLastSlno;
-            }
-            set
-            {
-                this.highPriorityQueueLastSlno = value;
-            }
-        }
-
-        public long MediumPriorityQueueLastSlno
-        {
-            get
-            {
-                return this.mediumPriorityQueueLastSlno;
-            }
-            set
-            {
-                this.mediumPriorityQueueLastSlno = value;
-            }
-        }
-
-        public long LowPriorityQueueLastSlno
-        {
-            get
-            {
-                return this.lowPriorityQueueLastSlno;
-            }
-            set
-            {
-                this.lowPriorityQueueLastSlno = value;
-            }
-        }
-
+        public string CountryPrefix { get { return countryPrefix; } set { countryPrefix = value; } }
+        public bool IsCountryPrefixAllowed { get { return isCountryPrefixAllowed; } set { isCountryPrefixAllowed = value; } }
+        public string DialPrefix { get { return dialPrefix; } set { dialPrefix = value; } }
+        public long HighPriorityQueueLastSlno { get { return this.highPriorityQueueLastSlno; } set { this.highPriorityQueueLastSlno = value; } }
+        public long MediumPriorityQueueLastSlno { get { return this.mediumPriorityQueueLastSlno; } set { this.mediumPriorityQueueLastSlno = value; } }
+        public long LowPriorityQueueLastSlno { get { return this.lowPriorityQueueLastSlno; } set { this.lowPriorityQueueLastSlno = value; } }
         public short PushThreadsTotal
         {
             get

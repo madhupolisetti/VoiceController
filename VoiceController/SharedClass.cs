@@ -17,7 +17,7 @@ namespace VoiceController
         private static ILog logger = (ILog)null;
         private static ILog dumpLogger = (ILog)null;
         private static ILog heartBeatLogger = (ILog)null;
-        private static bool isHangupProcessInMemory = true;
+        private static bool isHangupProcessInMemory = false;
         private static RabbitMQClient rabbitMQClient = null;
         private static HangupProcessor hangupProcessor = null;
         private static bool isHangupConsumerRunning = false;

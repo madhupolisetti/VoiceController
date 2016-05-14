@@ -177,6 +177,7 @@ namespace VoiceController
                             if (deliverEventArgs != null)
                             {
                                 string hangupMessage = Encoding.UTF8.GetString(deliverEventArgs.Body);
+                                SharedClass.Logger.Debug(hangupMessage);
                                 JObject hangupJson = JObject.Parse(hangupMessage);
                                 if (hangupJson.SelectToken("gwid") != null && ushort.TryParse(hangupJson.SelectToken("gwid").ToString(), out gatewayId))
                                 {
@@ -286,21 +287,21 @@ namespace VoiceController
             }
             else
             {
-                SharedClass.Logger.Info("Started");
-                string str = null;
+                SharedClass.Logger.Info("Started");                
                 SharedClass.IsCallFlowsConsumerRunning = true;
                 BasicDeliverEventArgs deliverEventArgs = null;
+                string message = null;
                 while (!SharedClass.HasStopSignal)
                 {
-                    while (true)
-                    {
+                    while (true) {
                         try
                         {
                             deliverEventArgs = null;
                             this.callFlowsConsumer.Queue.Dequeue(5000, out deliverEventArgs);
                             if (deliverEventArgs != null)
                             {
-                                str = Encoding.UTF8.GetString(deliverEventArgs.Body);
+                                message = System.Text.Encoding.UTF8.GetString(deliverEventArgs.Body);
+                                SharedClass.Logger.Info(message);
                                 this.channel.BasicAck(deliverEventArgs.DeliveryTag, false);
                                 break;
                             }

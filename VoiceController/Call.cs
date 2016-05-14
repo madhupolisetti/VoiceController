@@ -35,7 +35,7 @@ namespace VoiceController
             }
         }
 
-        public long MobileId
+        public long CallId
         {
             get
             {
@@ -181,7 +181,7 @@ namespace VoiceController
 
         public string PrintMe()
         {
-            return " QueueTableSlno : " + (object)this.QueueTableSlno + ", MobileId : " + (string)(object)this.MobileId + ", Destination : " + this.Destination + ", CallerId : " + this.CallerId;
+            return " QueueTableSlno : " + this.QueueTableSlno.ToString() + ", MobileId : " + this.CallId.ToString() + ", Destination : " + this.Destination + ", CallerId : " + this.CallerId;
         }
     }
 }

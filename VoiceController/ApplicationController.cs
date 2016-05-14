@@ -73,7 +73,9 @@ namespace VoiceController
             }
             while (SharedClass.GatewayMap.Count > 0)
             {
-                SharedClass.Logger.Info((object)("Gateways Object Not Yet Cleaned, Active Gateways : " + (object)SharedClass.GatewayMap.Count));
+                SharedClass.Logger.Info(("Gateways Object Not Yet Cleaned, Active Gateways : " + SharedClass.GatewayMap.Count.ToString()));
+                SharedClass.Logger.Info("GatewayId : " + SharedClass.GatewayMap.First().Value.Id);
+                SharedClass.Logger.Info("Push Threads Running : " + SharedClass.GatewayMap.First().Value.PushThreadsRunning);                
                 Thread.Sleep(1000);
             }
             if (SharedClass.Listener != null) {
@@ -212,7 +214,7 @@ namespace VoiceController
             SqlCommand sqlCommand = (SqlCommand)null;
             try
             {
-                sqlCommand = new SqlCommand("GetVoiceGateways", new SqlConnection(SharedClass.ConnectionString));
+                sqlCommand = new SqlCommand("Get_VoiceGateways", new SqlConnection(SharedClass.ConnectionString));
                 sqlCommand.CommandType = CommandType.StoredProcedure;
                 SqlDataAdapter sqlDataAdapter = new SqlDataAdapter();
                 DataSet dataSet = new DataSet();
@@ -226,7 +228,7 @@ namespace VoiceController
                         Thread gatewayThread = null;
                         try
                         {
-                            gateway.Id = (int)Convert.ToInt16(dataRow["Id"]);
+                            gateway.Id = Convert.ToInt16(dataRow["Id"]);
                             gateway.Name = dataRow["Name"].ToString().Replace(" ", "");
                             gateway.ConnectUrl = dataRow["ConnectUrl"].ToString();
                             gateway.Ip = dataRow["Ip"].ToString();
@@ -237,10 +239,13 @@ namespace VoiceController
                             if (!gateway.OriginationUrl.EndsWith("/"))
                                 gateway.OriginationUrl += "/";
                             gateway.ExtraDialString = dataRow["ExtraDialString"].ToString();
+                            gateway.CountryPrefix = dataRow["CountryPrefix"].ToString();
+                            gateway.IsCountryPrefixAllowed = Convert.ToBoolean(dataRow["IsCountryPrefixAllowed"].ToString());
+                            gateway.DialPrefix = dataRow["DialPrefix"].ToString();
                             gateway.HighPriorityQueueLastSlno = Convert.ToInt64(dataRow["HighPriorityQueueLastSlno"]);
                             gateway.MediumPriorityQueueLastSlno = Convert.ToInt64(dataRow["MediumPriorityQueueLastSlno"]);
                             gateway.LowPriorityQueueLastSlno = Convert.ToInt64(dataRow["LowPriorityQueueLastSlno"]);
-                            gateway.PushThreadsTotal = (short)Convert.ToSByte(dataRow["PushThreadsTotal"]);
+                            gateway.PushThreadsTotal = Convert.ToSByte(dataRow["PushThreadsTotal"]);
                             gatewayThread = new Thread(new ThreadStart(gateway.Start));
                             gatewayThread.Name = gateway.Name.Replace(" ", "");
                             SharedClass.Logger.Info("Starting Gateway " + gateway.Name);
@@ -309,7 +314,7 @@ namespace VoiceController
                 SharedClass.RabbitMQClient.Host = ConfigurationManager.AppSettings["RabbitMQHost"];
                 if (ConfigurationManager.AppSettings["RabbitMQPort"] != null)
                 {
-                    SharedClass.RabbitMQClient.Port = (int)Convert.ToInt16(ConfigurationManager.AppSettings["RabbitMQPort"]);
+                    SharedClass.RabbitMQClient.Port = Convert.ToInt16(ConfigurationManager.AppSettings["RabbitMQPort"]);
                 }
                 SharedClass.RabbitMQClient.User = ConfigurationManager.AppSettings["RabbitMQUser"] == null ? "guest" : ConfigurationManager.AppSettings["RabbitMQUser"].ToString();
                 SharedClass.RabbitMQClient.Password = ConfigurationManager.AppSettings["RabbitMQPassword"] == null ? "guest" : ConfigurationManager.AppSettings["RabbitMQPassword"].ToString();
@@ -334,7 +339,7 @@ namespace VoiceController
             SharedClass.Notifier.ApiUrl = ConfigurationManager.AppSettings["ApiUrl"] == null ? "" : ConfigurationManager.AppSettings["ApiUrl"].ToString();
             SharedClass.IsHangupProcessInMemory = ConfigurationManager.AppSettings["IsHangupProcessInMemory"] == null ? false : Convert.ToBoolean(ConfigurationManager.AppSettings["IsHangupProcessInMemory"]);
             SharedClass.Listener.Ip = ConfigurationManager.AppSettings["ListenerIp"] == null ? "" : ConfigurationManager.AppSettings["ListenerIp"].ToString();
-            SharedClass.Listener.Port = ConfigurationManager.AppSettings["ListenerPort"] == null ? 0 : (int)Convert.ToInt16(ConfigurationManager.AppSettings["ListenerPort"]);
+            SharedClass.Listener.Port = ConfigurationManager.AppSettings["ListenerPort"] == null ? 0 : Convert.ToInt16(ConfigurationManager.AppSettings["ListenerPort"]);
             if (ConfigurationManager.AppSettings["BulkRequestBatchCount"] != null) {
                 SharedClass.BulkRequestBatchCount = Convert.ToInt16(ConfigurationManager.AppSettings["BulkRequestBatchCount"].ToString());
             }
