@@ -104,7 +104,7 @@ namespace VoiceController
                         this.channel.QueueDeclare("Hangups", true, false, false, null);
                         this.channel.QueueDeclare("CallFlows", true, false, false, null);
                         this.channel.QueueDeclare("HangupData", true, false, false, null);
-                        this.channel.BasicQos(0U, (ushort)1, false);
+                        this.channel.BasicQos(0U, 1, false);
                         this.channelProperties = this.channel.CreateBasicProperties();
                         this.channelProperties.DeliveryMode = (byte)2;
                         this.hangupConsumer = new QueueingBasicConsumer(this.channel);
@@ -160,7 +160,7 @@ namespace VoiceController
             else
             {
                 SharedClass.Logger.Info("Started");                
-                ushort gatewayId = 0;
+                byte gatewayId = 0;
                 SharedClass.IsHangupConsumerRunning = true;
                 BasicDeliverEventArgs deliverEventArgs = null;
                 ThreadInterruptedException interruptedException;
@@ -179,7 +179,7 @@ namespace VoiceController
                                 string hangupMessage = Encoding.UTF8.GetString(deliverEventArgs.Body);
                                 SharedClass.Logger.Debug(hangupMessage);
                                 JObject hangupJson = JObject.Parse(hangupMessage);
-                                if (hangupJson.SelectToken("gwid") != null && ushort.TryParse(hangupJson.SelectToken("gwid").ToString(), out gatewayId))
+                                if (hangupJson.SelectToken("gwid") != null && Byte.TryParse(hangupJson.SelectToken("gwid").ToString(), out gatewayId))
                                 {
                                     lock (SharedClass.GatewayMap)
                                     {

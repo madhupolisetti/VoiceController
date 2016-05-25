@@ -8,14 +8,14 @@ namespace VoiceController
 {
     public static class Priority
     {
-        private static sbyte hpFloor = 0;
-        private static sbyte hpCeil = 0;
-        private static sbyte mpFloor = 0;
-        private static sbyte mpCeil = 0;
-        private static sbyte lpFloor = 0;
-        private static sbyte lpCeil = 0;
+        private static byte hpFloor = 0;
+        private static byte hpCeil = 0;
+        private static byte mpFloor = 0;
+        private static byte mpCeil = 0;
+        private static byte lpFloor = 0;
+        private static byte lpCeil = 0;
 
-        public static sbyte HpFloor
+        public static byte HpFloor
         {
             get
             {
@@ -27,7 +27,7 @@ namespace VoiceController
             }
         }
 
-        public static sbyte HpCeil
+        public static byte HpCeil
         {
             get
             {
@@ -39,7 +39,7 @@ namespace VoiceController
             }
         }
 
-        public static sbyte MpFloor
+        public static byte MpFloor
         {
             get
             {
@@ -51,7 +51,7 @@ namespace VoiceController
             }
         }
 
-        public static sbyte MpCeil
+        public static byte MpCeil
         {
             get
             {
@@ -63,7 +63,7 @@ namespace VoiceController
             }
         }
 
-        public static sbyte LpFloor
+        public static byte LpFloor
         {
             get
             {
@@ -75,7 +75,7 @@ namespace VoiceController
             }
         }
 
-        public static sbyte LpCeil
+        public static byte LpCeil
         {
             get
             {
@@ -87,7 +87,7 @@ namespace VoiceController
             }
         }
 
-        public static Priority.PriorityMode GetPriority(sbyte value)
+        public static Priority.PriorityMode GetPriority(byte value)
         {
             if (value == 0) {
                 return PriorityMode.Urgent;

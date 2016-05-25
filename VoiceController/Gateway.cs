@@ -31,9 +31,9 @@ namespace VoiceController
         private long highPriorityQueueLastSlno = 0;
         private long mediumPriorityQueueLastSlno = 0;
         private long lowPriorityQueueLastSlno = 0L;
-        private short pushThreadsTotal = (short)1;
-        private short pushThreadsRunning = (short)0;
-        private short pollThreadsRunning = 0;
+        private byte pushThreadsTotal = 1;
+        private byte pushThreadsRunning = 0;
+        private byte pollThreadsRunning = 0;
         private bool shouldIPoll = true;
         private bool shouldIProcess = true;
         private Mutex concurrencyMutex = new Mutex();
@@ -92,7 +92,7 @@ namespace VoiceController
             this.mpPollThread.Start(Priority.PriorityMode.Medium);
             this.lpPollThread.Start(Priority.PriorityMode.Low);
             this.pushThreads = new Thread[this.pushThreadsTotal];
-            for (short index = 1; index <= this.pushThreadsTotal; ++index)
+            for (byte index = 1; index <= this.pushThreadsTotal; ++index)
             {
                 this.pushThreads[index - 1] = new Thread(new ThreadStart(this.StartPushing));
                 this.pushThreads[index - 1].Name = this.name + "_Push_" + index;
@@ -109,7 +109,7 @@ namespace VoiceController
             this.shouldIPoll = false;
             this.shouldIProcess = false;
             Thread.Sleep(500);
-            for (short index = 0; index < this.pushThreads.Count(); ++index)
+            for (byte index = 0; index < this.pushThreads.Count(); ++index)
             {
                 //Enumerable.Count<Thread>((IEnumerable<Thread>)this.pushThreads
                 while (this.pushThreads[index].ThreadState == ThreadState.WaitSleepJoin)
@@ -191,8 +191,8 @@ namespace VoiceController
             SqlDataAdapter da = null;
             DataSet ds = null;
             Call call = null;
-            short floorValue = 0;
-            short ceilValue = 10;
+            byte floorValue = 0;
+            byte ceilValue = 10;
             switch (priorityMode) { 
                 case Priority.PriorityMode.Urgent:
                     floorValue = 0;
@@ -249,9 +249,9 @@ namespace VoiceController
                             call.RingUrl = dataRow["RingUrl"].ToString();
                             call.AnswerUrl = dataRow["AnswerUrl"].ToString();
                             call.HangupUrl = dataRow["HangupUrl"].ToString();
-                            call.Pulse = Convert.ToSByte(dataRow["Pulse"]);
+                            call.Pulse = Convert.ToByte(dataRow["Pulse"]);
                             call.PricePerPulse = float.Parse(dataRow["PricePerPulse"].ToString());
-                            call.PriorityValue = Convert.ToSByte(dataRow["Priority"]);
+                            call.PriorityValue = Convert.ToByte(dataRow["Priority"]);
                             this.CallsQueue.EnQueue(call, priorityMode);
                         }
                         this.UpdateLastSlno(priorityMode, call.QueueTableSlno);
@@ -535,7 +535,7 @@ namespace VoiceController
         public long HighPriorityQueueLastSlno { get { return this.highPriorityQueueLastSlno; } set { this.highPriorityQueueLastSlno = value; } }
         public long MediumPriorityQueueLastSlno { get { return this.mediumPriorityQueueLastSlno; } set { this.mediumPriorityQueueLastSlno = value; } }
         public long LowPriorityQueueLastSlno { get { return this.lowPriorityQueueLastSlno; } set { this.lowPriorityQueueLastSlno = value; } }
-        public short PushThreadsTotal
+        public byte PushThreadsTotal
         {
             get
             {
@@ -547,7 +547,7 @@ namespace VoiceController
             }
         }
 
-        public short PushThreadsRunning
+        public byte PushThreadsRunning
         {
             get
             {

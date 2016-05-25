@@ -121,14 +121,15 @@ namespace VoiceController
                                 bulkRequest.Id = Convert.ToInt64(dataRow["Id"].ToString());
                                 bulkRequest.Xml = dataRow["Xml"].ToString();
                                 bulkRequest.Ip = dataRow["Ip"].ToString();
+                                bulkRequest.ToolId = Convert.ToByte(dataRow["ToolId"]);
                                 bulkRequest.Destinations = new StringBuilder(dataRow["MobileNumbersList"].ToString());
                                 bulkRequest.UUIDs = new StringBuilder(dataRow["UUIDsList"].ToString());
                                 bulkRequest.RingUrl = dataRow["RingUrl"].ToString();
                                 bulkRequest.AnswerUrl = dataRow["AnswerUrl"].ToString();
                                 bulkRequest.HangupUrl = dataRow["HangupUrl"].ToString();
-                                bulkRequest.Retries = (short)Convert.ToSByte(dataRow["Retries"].ToString());
+                                bulkRequest.Retries = Convert.ToByte(dataRow["Retries"].ToString());
                                 bulkRequest.CallerId = dataRow["CallerId"].ToString();
-                                bulkRequest.Status = (short)Convert.ToSByte(dataRow["Status"].ToString());
+                                bulkRequest.Status = Convert.ToByte(dataRow["Status"].ToString());
                                 if (dataRow["ProcessedCount"] != DBNull.Value)
                                     bulkRequest.ProcessedCount = Convert.ToInt32(dataRow["ProcessedCount"].ToString());
                                 if (dataRow["RequestId"] != DBNull.Value)
@@ -247,7 +248,7 @@ namespace VoiceController
                             gateway.HighPriorityQueueLastSlno = Convert.ToInt64(dataRow["HighPriorityQueueLastSlno"]);
                             gateway.MediumPriorityQueueLastSlno = Convert.ToInt64(dataRow["MediumPriorityQueueLastSlno"]);
                             gateway.LowPriorityQueueLastSlno = Convert.ToInt64(dataRow["LowPriorityQueueLastSlno"]);
-                            gateway.PushThreadsTotal = Convert.ToSByte(dataRow["PushThreadsTotal"]);
+                            gateway.PushThreadsTotal = Convert.ToByte(dataRow["PushThreadsTotal"]);
                             gatewayThread = new Thread(new ThreadStart(gateway.Start));
                             gatewayThread.Name = gateway.Name.Replace(" ", "");
                             SharedClass.Logger.Info("Starting Gateway " + gateway.Name);
@@ -286,8 +287,8 @@ namespace VoiceController
             }
             else
             {
-                Priority.HpFloor = Convert.ToSByte(ConfigurationManager.AppSettings["HP"].ToString().Split('-')[0].ToString());
-                Priority.HpCeil = Convert.ToSByte(ConfigurationManager.AppSettings["HP"].ToString().Split('-')[1].ToString());
+                Priority.HpFloor = Convert.ToByte(ConfigurationManager.AppSettings["HP"].ToString().Split('-')[0].ToString());
+                Priority.HpCeil = Convert.ToByte(ConfigurationManager.AppSettings["HP"].ToString().Split('-')[1].ToString());
             }
             if (ConfigurationManager.AppSettings["MP"] == null)
             {
@@ -296,8 +297,8 @@ namespace VoiceController
             }
             else
             {
-                Priority.MpFloor = Convert.ToSByte(ConfigurationManager.AppSettings["MP"].ToString().Split('-')[0].ToString());
-                Priority.MpCeil = Convert.ToSByte(ConfigurationManager.AppSettings["MP"].ToString().Split('-')[1].ToString());
+                Priority.MpFloor = Convert.ToByte(ConfigurationManager.AppSettings["MP"].ToString().Split('-')[0].ToString());
+                Priority.MpCeil = Convert.ToByte(ConfigurationManager.AppSettings["MP"].ToString().Split('-')[1].ToString());
             }
             if (ConfigurationManager.AppSettings["LP"] == null)
             {
@@ -306,8 +307,8 @@ namespace VoiceController
             }
             else
             {
-                Priority.LpFloor = Convert.ToSByte(ConfigurationManager.AppSettings["LP"].ToString().Split('-')[0].ToString());
-                Priority.LpCeil = Convert.ToSByte(ConfigurationManager.AppSettings["LP"].ToString().Split('-')[1].ToString());
+                Priority.LpFloor = Convert.ToByte(ConfigurationManager.AppSettings["LP"].ToString().Split('-')[0].ToString());
+                Priority.LpCeil = Convert.ToByte(ConfigurationManager.AppSettings["LP"].ToString().Split('-')[1].ToString());
             }
             if (ConfigurationManager.AppSettings["RabbitMQHost"] != null)
             {

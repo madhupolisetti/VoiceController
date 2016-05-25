@@ -14,12 +14,12 @@ namespace VoiceController
     public class AccountProcessor
     {
         private long accountId = 0L;
-        private short accountType = 1;
+        private byte accountType = 1;
         private Queue<BulkRequest> bulkRequestsQueue = new Queue<BulkRequest>();
         private Mutex queueMutex = new Mutex();
         private bool shouldIProcess = true;
-        private short maxThreads = 1;
-        private short activeThreads = 0;
+        private byte maxThreads = 1;
+        private byte activeThreads = 0;
 
         public AccountProcessor() {
             this.maxThreads = GetConcurrentThreads();
@@ -134,7 +134,7 @@ namespace VoiceController
         private JObject ProcessChunk(BulkRequest bulkRequest, System.Data.DataTable mobileUUIDsTable) {
             SqlConnection sqlCon = new SqlConnection(SharedClass.ConnectionString);
             SqlCommand sqlCmd = new SqlCommand("Create_Call");
-            short retryAttempt = 0;
+            byte retryAttempt = 0;
             SqlParameter mobileUUIDParameter = null;
             SqlParameter xmlTagNamesParameter = null;
             XmlDocument xmlDoc = new XmlDocument();
@@ -299,13 +299,13 @@ namespace VoiceController
             return bulkRequest;
         }
 
-        private short GetConcurrentThreads() {
-            short concurrentThreads = 1;            
+        private byte GetConcurrentThreads() {
+            byte concurrentThreads = 1;            
             return concurrentThreads;
         }
         public long AccountId { get { return this.accountId; } set { this.accountId = value; } } 
-        public short MaxThreads { get { return this.maxThreads; } set { this.maxThreads = value; } } 
-        public short ActiveThreads { get { return this.activeThreads; } set { this.activeThreads = value; } }
-        public short AccountType { get { return this.accountType; } set { this.accountType = value; } }
+        public byte MaxThreads { get { return this.maxThreads; } set { this.maxThreads = value; } } 
+        public byte ActiveThreads { get { return this.activeThreads; } set { this.activeThreads = value; } }
+        public byte AccountType { get { return this.accountType; } set { this.accountType = value; } }
     }
 }

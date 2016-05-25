@@ -22,7 +22,7 @@ namespace VoiceController
         private JObject hangupData = null;
         private XmlDocument xmlDoc = null;
         private XmlElement rootElement = null;
-        private ushort retryAttempt = 0;
+        private byte retryAttempt = 0;
 
         public bool IsRunning
         {

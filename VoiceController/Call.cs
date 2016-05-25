@@ -19,9 +19,9 @@ namespace VoiceController
         private string ringUrl = "";
         private string answerUrl = "";
         private string hangupUrl = "";
-        private sbyte pulse = (sbyte)0;
+        private byte pulse = 0;
         private float pricePerPulse = 0.0f;
-        private sbyte priorityValue = (sbyte)0;
+        private byte priorityValue = 0;
 
         public long QueueTableSlno
         {
@@ -143,7 +143,7 @@ namespace VoiceController
             }
         }
 
-        public sbyte Pulse
+        public byte Pulse
         {
             get
             {
@@ -167,7 +167,7 @@ namespace VoiceController
             }
         }
 
-        public sbyte PriorityValue
+        public byte PriorityValue
         {
             get
             {
