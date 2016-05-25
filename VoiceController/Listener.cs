@@ -14,8 +14,8 @@ namespace VoiceController
         public void Initialize()
         {
             this.prefixes = new List<string>();
-            this.prefixes.Add("http://" + (object)this.ip + ":" + (string)(object)this.port + "/Gateways/");
-            this.prefixes.Add("http://" + (object)this.ip + ":" + (string)(object)this.port + "/VoiceRequests/");
+            this.prefixes.Add("http://" + this.ip + ":" + this.port.ToString() + "/Gateways/");
+            this.prefixes.Add("http://" + this.ip + ":" + this.port.ToString() + "/VoiceRequests/");
             new Thread(new ThreadStart(this.Start))
             {
                 Name = "Listener"
@@ -30,29 +30,29 @@ namespace VoiceController
             try
             {
                 this.listener.Stop();
-                SharedClass.Logger.Info((object)"WebListener Stop Executed");
+                SharedClass.Logger.Info("WebListener Stop Executed");
             }
             catch (Exception ex)
             {
-                SharedClass.Logger.Error((object)("Error Stopping WebListener : " + ex.Message));
+                SharedClass.Logger.Error("Error Stopping WebListener : " + ex.Message);
             }
             try
             {
                 this.listener.Close();
-                SharedClass.Logger.Info((object)"Listener Close Executed");
+                SharedClass.Logger.Info("Listener Close Executed");
             }
             catch (Exception ex)
             {
-                SharedClass.Logger.Error((object)("Error Closing Listener " + ex.ToString()));
+                SharedClass.Logger.Error("Error Closing Listener " + ex.ToString());
             }
             try
             {
                 this.listener.Abort();
-                SharedClass.Logger.Info((object)"Listener Abort Executed");
+                SharedClass.Logger.Info("Listener Abort Executed");
             }
             catch (Exception ex)
             {
-                SharedClass.Logger.Error((object)("Error Aborting Listener " + ex.ToString()));
+                SharedClass.Logger.Error("Error Aborting Listener " + ex.ToString());
             }
             this.listener = (HttpListener)null;
         }
@@ -62,18 +62,18 @@ namespace VoiceController
             this.listener = new HttpListener();
             foreach (string uriPrefix in this.prefixes)
             {
-                SharedClass.Logger.Info((object)("Adding Url " + uriPrefix + " To Listener"));
+                SharedClass.Logger.Info("Adding Url " + uriPrefix + " To Listener");
                 try
                 {
                     this.listener.Prefixes.Add(uriPrefix);
                 }
                 catch (Exception ex)
                 {
-                    SharedClass.Logger.Error((object)("Error Adding prefix To Listener, Reason : " + ex.ToString()));
+                    SharedClass.Logger.Error("Error Adding prefix To Listener, Reason : " + ex.ToString());
                 }
             }
             this.listener.Start();
-            SharedClass.Logger.Info((object)"Started Listening On " + this.ip + ":" + this.port);
+            SharedClass.Logger.Info("Started Listening On " + this.ip + ":" + this.port.ToString());
             //do
             //    ;
             //while (!SharedClass.HasStopSignal);

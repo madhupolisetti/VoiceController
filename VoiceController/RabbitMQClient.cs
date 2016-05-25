@@ -117,7 +117,7 @@ namespace VoiceController
                         {
                             this.hangupLazyConsumer = new QueueingBasicConsumer(this.channel);
                             this.hangupLazyConsumerTag = this.channel.BasicConsume("HangupData", false, (IBasicConsumer)this.hangupLazyConsumer);
-                            SharedClass.Logger.Info("HangupLazzy Queue Consumer Created, ConsumerTag : " + (object)this.hangupLazyConsumerTag);
+                            SharedClass.Logger.Info("HangupLazzy Queue Consumer Created, ConsumerTag : " + this.hangupLazyConsumerTag);
                         }
                         SharedClass.Logger.Info("Connected To RabbitMQ Succesfully");
                         this.isConnected = true;

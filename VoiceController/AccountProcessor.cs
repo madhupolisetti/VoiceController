@@ -7,6 +7,7 @@ using System.Threading;
 using System.Data;
 using System.Data.SqlClient;
 using Newtonsoft.Json.Linq;
+using System.Xml;
 
 namespace VoiceController
 {
@@ -16,7 +17,7 @@ namespace VoiceController
         private short accountType = 1;
         private Queue<BulkRequest> bulkRequestsQueue = new Queue<BulkRequest>();
         private Mutex queueMutex = new Mutex();
-        private bool shouldIProcess = false;
+        private bool shouldIProcess = true;
         private short maxThreads = 1;
         private short activeThreads = 0;
 
@@ -34,7 +35,8 @@ namespace VoiceController
                     if (bulkRequest != null)
                     {
                         Thread thread = new Thread(new ParameterizedThreadStart(this.StartBulkProcess));
-                        SharedClass.Logger.Info("Spawning New Thread For BulkRequest Id : " + (object)bulkRequest.Id);
+                        SharedClass.Logger.Info("Spawning New Thread For BulkRequest Id : " + bulkRequest.Id.ToString());
+                        thread.Name = "Account_" + this.accountId.ToString() + "_Processor_" + (this.activeThreads + 1).ToString();
                         thread.Start(bulkRequest);
                     }
                 }
@@ -45,7 +47,7 @@ namespace VoiceController
         }
         public void Stop()
         {
-            SharedClass.Logger.Info("Stopping AccountId : " + this.AccountId + " Processor");
+            SharedClass.Logger.Info("Stopping AccountId : " + this.AccountId.ToString() + " Processor");
             BulkRequest bulkRequest = null;
             this.shouldIProcess = false;
             while (this.QueueCount() > 0)
@@ -57,7 +59,7 @@ namespace VoiceController
             }
             while ((int)this.activeThreads > 0)
             {
-                SharedClass.Logger.Info("AccountId " + this.AccountId + " has still " + this.ActiveThreads + " active process threads running");
+                SharedClass.Logger.Info("AccountId " + this.AccountId.ToString() + " has still " + this.ActiveThreads.ToString() + " active process threads running");
                 Thread.Sleep(1000);
             }
             SharedClass.ReleaseAccountProcessor(this.AccountId);
@@ -80,7 +82,7 @@ namespace VoiceController
                 uuidsArray = bulkRequest.UUIDs.ToString().Split(',');
                 if (destinationsArray.Length != uuidsArray.Length)
                 {
-                    SharedClass.Logger.Error("Destinations Count (" + destinationsArray.Length + ") And UUIDs Count (" + uuidsArray.Length + ") Mismatch. Terminating Process.");
+                    SharedClass.Logger.Error("Destinations Count (" + destinationsArray.Length.ToString() + ") And UUIDs Count (" + uuidsArray.Length.ToString() + ") Mismatch. Terminating Process.");
                     bulkRequest.ReEnQueueToDataBase(true);
                     return;
                 }
@@ -97,7 +99,7 @@ namespace VoiceController
                         }
                         else {
                             bulkRequest.ProcessedCount += mobileUUIDsTable.Rows.Count;
-                            bulkRequest.Update();
+                            bulkRequest.UpdateProcessedCount();
                         }
                         mobileUUIDsTable.Rows.Clear();
                     }
@@ -114,7 +116,7 @@ namespace VoiceController
                     else
                     {
                         bulkRequest.ProcessedCount += mobileUUIDsTable.Rows.Count;
-                        bulkRequest.Update();
+                        bulkRequest.UpdateProcessedCount();
                     }
                     mobileUUIDsTable.Rows.Clear();
                 }
@@ -122,7 +124,7 @@ namespace VoiceController
             catch (Exception e)
             {
                 SharedClass.Logger.Error("Error Processing BulkRequest : " + e.ToString());
-                bulkRequest.Update();
+                bulkRequest.UpdateProcessedCount();
             }
             finally {
                 --this.ActiveThreads;   
@@ -131,17 +133,26 @@ namespace VoiceController
 
         private JObject ProcessChunk(BulkRequest bulkRequest, System.Data.DataTable mobileUUIDsTable) {
             SqlConnection sqlCon = new SqlConnection(SharedClass.ConnectionString);
-            SqlCommand sqlCmd = new SqlCommand("Create_Call", sqlCon);
+            SqlCommand sqlCmd = new SqlCommand("Create_Call");
             short retryAttempt = 0;
+            SqlParameter mobileUUIDParameter = null;
+            SqlParameter xmlTagNamesParameter = null;
+            XmlDocument xmlDoc = new XmlDocument();
+            xmlDoc.LoadXml(bulkRequest.Xml);
+            DataTable xmlTagNamesTable = GetXmlTagNames(xmlDoc);
             retryLabel:
             try
-            {
+            {   
                 sqlCmd.Parameters.Add("@AccountId", SqlDbType.BigInt).Value = this.accountId;
                 sqlCmd.Parameters.Add("@AccountType", SqlDbType.TinyInt).Value = this.accountType;
                 sqlCmd.Parameters.Add("@ToolId", SqlDbType.TinyInt).Value = bulkRequest.ToolId;
                 sqlCmd.Parameters.Add("@Xml", SqlDbType.VarChar, bulkRequest.Xml.Length).Value = bulkRequest.Xml;
-                sqlCmd.Parameters.Add("@MobileNumbersAndUUIDs", SqlDbType.Structured).Value = mobileUUIDsTable;
-                sqlCmd.Parameters.Add("@XmlTagNames", SqlDbType.Structured).Value = new System.Data.DataTable();
+                mobileUUIDParameter = sqlCmd.Parameters.Add("@MobileNumbersAndUUIDs", SqlDbType.Structured);
+                mobileUUIDParameter.TypeName = "dbo.MobileNumberUUIDType";
+                mobileUUIDParameter.Value = mobileUUIDsTable;
+                xmlTagNamesParameter =  sqlCmd.Parameters.Add("@XmlTagNames", SqlDbType.Structured);
+                xmlTagNamesParameter.TypeName = "dbo.XmlTagNames";
+                xmlTagNamesParameter.Value = xmlTagNamesTable;
                 sqlCmd.Parameters.Add("@IpAddress", SqlDbType.VarChar, bulkRequest.Ip.Length).Value = bulkRequest.Ip;
                 sqlCmd.Parameters.Add("@AnswerUrl", SqlDbType.VarChar, bulkRequest.AnswerUrl.Length).Value = bulkRequest.AnswerUrl;
                 sqlCmd.Parameters.Add("@RingUrl", SqlDbType.VarChar, bulkRequest.RingUrl.Length).Value = bulkRequest.RingUrl;
@@ -152,7 +163,13 @@ namespace VoiceController
                 sqlCmd.Parameters.Add("@StatusCode", SqlDbType.Int).Direction = System.Data.ParameterDirection.Output;
                 sqlCmd.Parameters.Add("@Success", SqlDbType.Bit).Direction = System.Data.ParameterDirection.Output;
                 sqlCmd.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = System.Data.ParameterDirection.Output;
-                sqlCon.Open();
+                if (sqlCon.State != ConnectionState.Open)
+                {
+                    sqlCmd.Connection = sqlCon;
+                    sqlCmd.CommandType = CommandType.StoredProcedure;
+                    sqlCon.ConnectionString = SharedClass.ConnectionString;
+                    sqlCon.Open();
+                } 
                 sqlCmd.ExecuteNonQuery();
                 return GetOutputParametersAsJSon(sqlCmd.Parameters);
             }
@@ -177,18 +194,52 @@ namespace VoiceController
                 sqlCmd.Dispose();
             }
         }
+        private DataTable GetXmlTagNames(XmlDocument doc)
+        {
+            DataTable result = new DataTable();
+            result.Columns.Add("TagName", typeof(string));
+            Stack<XmlElement> stack = new Stack<XmlElement>();
+            stack.Push(doc.FirstChild as XmlElement);
+            bool exists = false;
+            while (stack.Count > 0)
+            {
+                XmlElement currentElement = stack.Pop();
+                try
+                {
+                    foreach (XmlElement subElement in currentElement.ChildNodes)
+                    {
+                        stack.Push(subElement);
+                        foreach (DataRow row in result.Rows)
+                        {
+                            if (row["TagName"].ToString() == subElement.Name)
+                            {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists)
+                            result.Rows.Add(subElement.Name);
+                    }
+                }
+                catch (Exception e)
+                {
+
+                }
+            }
+            return result;
+        }
         public JObject GetOutputParametersAsJSon(SqlParameterCollection parameters) { 
             JObject jobj = new JObject();
             foreach (SqlParameter parameter in parameters) {
                 if (parameter.Direction == ParameterDirection.Output) {
-                    jobj.Add(new JProperty(parameter.ParameterName, parameter.Value));
+                    jobj.Add(new JProperty(parameter.ParameterName.Replace("@", ""), parameter.Value));
                 }
             }
             return jobj;
         }
         public bool EnQueue(BulkRequest bulkRequest)
         {
-            SharedClass.Logger.Info("EnQueuing BulkRequest " + (object)bulkRequest.Id + " Into AccountId " + (string)(object)this.accountId + " Processor");
+            SharedClass.Logger.Info("EnQueuing BulkRequest " + bulkRequest.Id.ToString() + " Into AccountId " + this.accountId.ToString() + " Processor");
             bool flag = false;
             try
             {
@@ -199,7 +250,7 @@ namespace VoiceController
             }
             catch (Exception ex)
             {
-                SharedClass.Logger.Error("Error EnQueuing BulkRequest Id : " + bulkRequest.Id + " Into AccountId : " + this.accountId + " Processor. Reason : " + ex.ToString());
+                SharedClass.Logger.Error("Error EnQueuing BulkRequest Id : " + bulkRequest.Id.ToString() + " Into AccountId : " + this.accountId.ToString() + " Processor. Reason : " + ex.ToString());
             }
             finally
             {
@@ -219,13 +270,7 @@ namespace VoiceController
             }
             catch (Exception ex)
             {
-                SharedClass.Logger.Error((object)string.Concat(new object[4]
-        {
-          (object) "Error Querying Count In AccountId : ",
-          (object) this.accountId,
-          (object) " Processor. Reason : ",
-          (object) ex.ToString()
-        }));
+                SharedClass.Logger.Error("Error Querying Count In Account Id : " + this.accountId.ToString() + " Processor. Reason : " + ex.ToString());
             }
             finally
             {
@@ -245,13 +290,7 @@ namespace VoiceController
             }
             catch (Exception ex)
             {
-                SharedClass.Logger.Error((object)string.Concat(new object[4]
-        {
-          (object) "Error DeQueuing In AccountId : ",
-          (object) this.accountId,
-          (object) " Processor. Reason : ",
-          (object) ex.ToString()
-        }));
+                SharedClass.Logger.Error("Error DeQueuing In AccountId : " + this.accountId.ToString() + " Processor. Reason : " + ex.ToString());
             }
             finally
             {

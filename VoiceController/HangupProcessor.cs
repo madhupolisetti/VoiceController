@@ -192,7 +192,7 @@ namespace VoiceController
                     }
                     catch (EndOfStreamException ex)
                     {
-                        SharedClass.Logger.Error("EndOfStream Exception, Reason : " + (object)ex.Message + ", HasStopSignal : " + SharedClass.HasStopSignal + ", IsConnected : " + SharedClass.RabbitMQClient.IsConnected);
+                        SharedClass.Logger.Error("EndOfStream Exception, Reason : " + ex.Message + ", HasStopSignal : " + SharedClass.HasStopSignal + ", IsConnected : " + SharedClass.RabbitMQClient.IsConnected);
                         if (!SharedClass.HasStopSignal)
                         {
                             SharedClass.RabbitMQClient.ConnectToServer();
@@ -208,7 +208,7 @@ namespace VoiceController
                     }
                     catch (Exception ex)
                     {
-                        SharedClass.Logger.Error((object)ex.ToString());
+                        SharedClass.Logger.Error(ex.ToString());
                         if (this.eventArgs != null)
                             SharedClass.RabbitMQClient.channel.BasicAck(this.eventArgs.DeliveryTag, false);
                         if (!SharedClass.HasStopSignal)

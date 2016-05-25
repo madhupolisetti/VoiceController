@@ -51,12 +51,12 @@ namespace VoiceController
             }
             while (SharedClass.IsHangupConsumerRunning)
             {
-                SharedClass.Logger.Info((object)"Hangup Subscriber Not Yet Stopped");
+                SharedClass.Logger.Info("Hangup Subscriber Not Yet Stopped");
                 Thread.Sleep(1000);
             }
             while (SharedClass.IsCallFlowsConsumerRunning)
             {
-                SharedClass.Logger.Info((object)"CallFlows Subscriber Not Yet Stopped");
+                SharedClass.Logger.Info("CallFlows Subscriber Not Yet Stopped");
                 Thread.Sleep(1000);
             }
             if (SharedClass.HangupProcessor != null) {
@@ -83,7 +83,7 @@ namespace VoiceController
             }
             while (this.isIamPolling)
             {
-                SharedClass.Logger.Info((object)("DbPoller Is Still Running, Thread State : " + this.pollThread.ThreadState.ToString()));
+                SharedClass.Logger.Info("DbPoller Is Still Running, Thread State : " + this.pollThread.ThreadState.ToString());
                 if (this.pollThread.ThreadState == ThreadState.WaitSleepJoin)
                     this.pollThread.Interrupt();
                 Thread.Sleep(100);
@@ -95,7 +95,7 @@ namespace VoiceController
         {
             long lastRequestId = 0;
             SharedClass.Logger.Info("Started");
-            SqlCommand sqlCommand = new SqlCommand("GetPendingBulkVoiceRequests", new SqlConnection(SharedClass.ConnectionString));
+            SqlCommand sqlCommand = new SqlCommand("VC_Get_PendingBulkVoiceRequests", new SqlConnection(SharedClass.ConnectionString));
             sqlCommand.CommandType = CommandType.StoredProcedure;
             SqlDataAdapter sqlDataAdapter = null;
             DataSet dataSet = null;
@@ -121,16 +121,18 @@ namespace VoiceController
                                 bulkRequest.Id = Convert.ToInt64(dataRow["Id"].ToString());
                                 bulkRequest.Xml = dataRow["Xml"].ToString();
                                 bulkRequest.Ip = dataRow["Ip"].ToString();
-                                bulkRequest.Destinations = new StringBuilder(dataRow["Destinations"].ToString());
-                                bulkRequest.UUIDs = new StringBuilder(dataRow["UUIDs"].ToString());
+                                bulkRequest.Destinations = new StringBuilder(dataRow["MobileNumbersList"].ToString());
+                                bulkRequest.UUIDs = new StringBuilder(dataRow["UUIDsList"].ToString());
                                 bulkRequest.RingUrl = dataRow["RingUrl"].ToString();
                                 bulkRequest.AnswerUrl = dataRow["AnswerUrl"].ToString();
                                 bulkRequest.HangupUrl = dataRow["HangupUrl"].ToString();
                                 bulkRequest.Retries = (short)Convert.ToSByte(dataRow["Retries"].ToString());
                                 bulkRequest.CallerId = dataRow["CallerId"].ToString();
                                 bulkRequest.Status = (short)Convert.ToSByte(dataRow["Status"].ToString());
-                                bulkRequest.ProcessedCount = Convert.ToInt32(dataRow["ProcessedCount"].ToString());
-                                bulkRequest.VoiceRequestId = Convert.ToInt64(dataRow["VoiceRequestId"].ToString());
+                                if (dataRow["ProcessedCount"] != DBNull.Value)
+                                    bulkRequest.ProcessedCount = Convert.ToInt32(dataRow["ProcessedCount"].ToString());
+                                if (dataRow["RequestId"] != DBNull.Value)
+                                    bulkRequest.VoiceRequestId = Convert.ToInt64(dataRow["RequestId"].ToString());
                                 AccountProcessor accountProcessor = null;
                                 lock (SharedClass.ActiveAccountProcessors)
                                 {
@@ -155,7 +157,7 @@ namespace VoiceController
                                     foreach (PropertyInfo propertyInfo in properties)
                                     {
                                         if (propertyInfo.CanRead)
-                                            SharedClass.DumpLogger.Error((object)(propertyInfo.Name + " : " + propertyInfo.GetValue(bulkRequest).ToString()));
+                                            SharedClass.DumpLogger.Error(propertyInfo.Name + " : " + propertyInfo.GetValue(bulkRequest).ToString());
                                     }
                                 }
                                 catch (Exception ex2)

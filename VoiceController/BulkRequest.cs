@@ -39,15 +39,15 @@ namespace VoiceController
         public short ToolId { get { return this.toolId; } set { this.toolId = value; } }
         public string DisplayString()
         {
-            return " Id : " + (object)this.Id + ", RingUrl : " + this.RingUrl + ", AnswerUrl : " + this.AnswerUrl + ", HangupUrl : " + this.HangupUrl + ", CallerId : " + this.CallerId + ", Status : " + (string)(object)this.Status + ", ProcessedCount : " + (string)(object)this.ProcessedCount + ", VoiceRequestId : " + (string)(object)this.VoiceRequestId;
+            return " Id : " + this.Id.ToString() + ", RingUrl : " + this.RingUrl + ", AnswerUrl : " + this.AnswerUrl + ", HangupUrl : " + this.HangupUrl + ", CallerId : " + this.CallerId + ", Status : " + this.Status.ToString() + ", ProcessedCount : " + this.ProcessedCount.ToString() + ", VoiceRequestId : " + this.VoiceRequestId.ToString();
         }
-        public void Update() {
+        public void UpdateProcessedCount() {
             System.Data.SqlClient.SqlConnection sqlCon = null;
             System.Data.SqlClient.SqlCommand sqlCmd = null;
             try
             {
                 sqlCon = new System.Data.SqlClient.SqlConnection(SharedClass.ConnectionString);
-                sqlCmd = new System.Data.SqlClient.SqlCommand("Update BulkVoiceRequests with(rowlock) Set ProcessedCount = " + this.processedCount + " Where Id = " + this.id);
+                sqlCmd = new System.Data.SqlClient.SqlCommand("Update BulkVoiceRequests with(rowlock) Set ProcessedCount = " + this.processedCount.ToString() + " Where Id = " + this.id.ToString(), sqlCon);
                 sqlCon.Open();
                 sqlCmd.ExecuteNonQuery();
                 sqlCon.Close();
@@ -62,7 +62,7 @@ namespace VoiceController
             try
             {
                 sqlCon = new System.Data.SqlClient.SqlConnection(SharedClass.ConnectionString);
-                sqlCmd = new System.Data.SqlClient.SqlCommand("Update BulkVoiceRequests with(rowlock) Set Status = " + ((isDeQueued == true) ? 9 : 0) + " Where Id = " + this.id);
+                sqlCmd = new System.Data.SqlClient.SqlCommand("Update BulkVoiceRequests with(rowlock) Set Status = " + ((isDeQueued == true) ? 9 : 0).ToString() + " Where Id = " + this.id.ToString(), sqlCon);
                 sqlCon.Open();
                 sqlCmd.ExecuteNonQuery();
                 sqlCon.Close();

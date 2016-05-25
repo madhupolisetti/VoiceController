@@ -69,7 +69,7 @@ namespace VoiceController
         public static bool AddAccountProcessor(long accountId, AccountProcessor Processor)
         {
             bool flag = false;
-            SharedClass.logger.Info((object)("Adding AccountID " + (object)accountId + " Into ActiveAccountProcessors"));
+            SharedClass.logger.Info("Adding AccountID " + accountId.ToString() + " Into ActiveAccountProcessors");
             try
             {
                 while (!SharedClass.activeAccountsMutex.WaitOne())
@@ -80,7 +80,7 @@ namespace VoiceController
             }
             catch (Exception ex)
             {
-                SharedClass.logger.Error((object)("Error Adding UserProcessor To Map : " + ex.Message));
+                SharedClass.logger.Error("Error Adding UserProcessor To Map : " + ex.Message);
             }
             finally
             {
@@ -92,7 +92,7 @@ namespace VoiceController
         public static bool ReleaseAccountProcessor(long accountId)
         {
             bool flag = false;
-            SharedClass.logger.Info((object)("Releasing AccountId " + (object)accountId + " From ActiveAccountProcessors Map"));
+            SharedClass.logger.Info("Releasing AccountId " + accountId.ToString() + " From ActiveAccountProcessors Map");
             try
             {
                 while (!SharedClass.activeAccountsMutex.WaitOne())
@@ -103,7 +103,7 @@ namespace VoiceController
             }
             catch (Exception ex)
             {
-                SharedClass.logger.Error((object)("Error Removing UserProcessor From Map : " + ex.Message));
+                SharedClass.logger.Error("Error Removing UserProcessor From Map : " + ex.Message);
             }
             finally
             {
@@ -124,7 +124,7 @@ namespace VoiceController
             }
             catch (Exception ex)
             {
-                SharedClass.logger.Error((object)("Error While Chcecking ActiveAccountMap, Reason : " + ex.ToString()));
+                SharedClass.logger.Error("Error While Chcecking ActiveAccountMap, Reason : " + ex.ToString());
             }
             finally
             {
