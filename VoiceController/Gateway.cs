@@ -96,7 +96,7 @@ namespace VoiceController
             {
                 this.pushThreads[index - 1] = new Thread(new ThreadStart(this.StartPushing));
                 this.pushThreads[index - 1].Name = this.name + "_Push_" + index;
-                //this.pushThreads[index - 1].Start();
+                this.pushThreads[index - 1].Start();
             }
             heartBeatThread = new Thread(new ThreadStart(HeartBeat));
             heartBeatThread.Name = this.name + "_HB";
