@@ -54,7 +54,7 @@ namespace VoiceController
             {
                 bulkRequest = this.DeQueue();
                 if (bulkRequest != null) {
-                    bulkRequest.ReEnQueueToDataBase(false);
+                    bulkRequest.ReEnQueueToDataBase(isDeQueued: false, reason: "");
                 }
             }
             while ((int)this.activeThreads > 0)
@@ -83,7 +83,7 @@ namespace VoiceController
                 if (destinationsArray.Length != uuidsArray.Length)
                 {
                     SharedClass.Logger.Error("Destinations Count (" + destinationsArray.Length.ToString() + ") And UUIDs Count (" + uuidsArray.Length.ToString() + ") Mismatch. Terminating Process.");
-                    bulkRequest.ReEnQueueToDataBase(true);
+                    bulkRequest.ReEnQueueToDataBase(isDeQueued: true, reason: "Destinations and UUIDs count mismatch");
                     return;
                 }
                 for (int iterator = bulkRequest.ProcessedCount; iterator < destinationsArray.Length ; iterator++)
@@ -94,10 +94,10 @@ namespace VoiceController
                         if (Convert.ToBoolean(ChunkProcessResponse.SelectToken("Success").ToString()) == false)
                         {
                             SharedClass.Logger.Error("Error Processing BulkRequest : " + bulkRequest.DisplayString() + ", Reason : " + ChunkProcessResponse.SelectToken("Message").ToString());
-                            bulkRequest.ReEnQueueToDataBase(true);
+                            bulkRequest.ReEnQueueToDataBase(isDeQueued: true, reason: ChunkProcessResponse.SelectToken("Message").ToString());
                             return;
                         }
-                        else {
+                        else {                            
                             bulkRequest.ProcessedCount += mobileUUIDsTable.Rows.Count;
                             bulkRequest.UpdateProcessedCount();
                         }
@@ -110,7 +110,7 @@ namespace VoiceController
                     if (Convert.ToBoolean(ChunkProcessResponse.SelectToken("Success").ToString()) == false)
                     {
                         SharedClass.Logger.Error("Error Processing BulkRequest : " + bulkRequest.DisplayString() + ", Reason : " + ChunkProcessResponse.SelectToken("Message").ToString());
-                        bulkRequest.ReEnQueueToDataBase(true);
+                        bulkRequest.ReEnQueueToDataBase(isDeQueued: true, reason: ChunkProcessResponse.SelectToken("Message").ToString());
                         return;
                     }
                     else

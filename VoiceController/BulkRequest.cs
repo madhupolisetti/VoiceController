@@ -11,8 +11,8 @@ namespace VoiceController
         private long id = 0L;
         private string xml = "";
         private string ip = "";
-        private StringBuilder destinations = (StringBuilder)null;
-        private StringBuilder uuids = (StringBuilder)null;
+        private StringBuilder destinations = null;
+        private StringBuilder uuids = null;
         private string ringUrl = "";
         private string answerUrl = "";
         private string hangupUrl = "";
@@ -20,6 +20,7 @@ namespace VoiceController
         private string callerId = "";
         private byte status = 0;
         private int processedCount = 0;
+        private int totalCount = 0;
         private long voiceRequestId = 0L;
         private byte toolId = 0;
 
@@ -37,6 +38,7 @@ namespace VoiceController
         public int ProcessedCount { get { return this.processedCount; } set { this.processedCount = value; } } 
         public long VoiceRequestId { get { return this.voiceRequestId; } set { this.voiceRequestId = value; } }
         public byte ToolId { get { return this.toolId; } set { this.toolId = value; } }
+        public int TotalCount { get { return this.totalCount; } set { this.totalCount = value; } }
         public string DisplayString()
         {
             return " Id : " + this.Id.ToString() + ", RingUrl : " + this.RingUrl + ", AnswerUrl : " + this.AnswerUrl + ", HangupUrl : " + this.HangupUrl + ", CallerId : " + this.CallerId + ", Status : " + this.Status.ToString() + ", ProcessedCount : " + this.ProcessedCount.ToString() + ", VoiceRequestId : " + this.VoiceRequestId.ToString();
@@ -46,6 +48,7 @@ namespace VoiceController
             System.Data.SqlClient.SqlCommand sqlCmd = null;
             try
             {
+                //SharedClass.Logger.Info("BulkRequestId : " + this.id.ToString() + ", Processed : " + this.processedCount.ToString() + ", Remaining : " + (this.))
                 sqlCon = new System.Data.SqlClient.SqlConnection(SharedClass.ConnectionString);
                 sqlCmd = new System.Data.SqlClient.SqlCommand("Update BulkVoiceRequests with(rowlock) Set ProcessedCount = " + this.processedCount.ToString() + " Where Id = " + this.id.ToString(), sqlCon);
                 sqlCon.Open();
@@ -56,13 +59,19 @@ namespace VoiceController
                 SharedClass.Logger.Error("Error Updating BulkRequest : " + e.ToString());
             }
         }
-        public void ReEnQueueToDataBase(bool isDeQueued = true) {
+        public void ReEnQueueToDataBase(bool isDeQueued = true, string reason = "") {
             System.Data.SqlClient.SqlConnection sqlCon = null;
             System.Data.SqlClient.SqlCommand sqlCmd = null;
             try
             {
+                if (reason.Length > 500)
+                    reason = reason.Substring(0, 500);
                 sqlCon = new System.Data.SqlClient.SqlConnection(SharedClass.ConnectionString);
-                sqlCmd = new System.Data.SqlClient.SqlCommand("Update BulkVoiceRequests with(rowlock) Set Status = " + ((isDeQueued == true) ? 9 : 0).ToString() + " Where Id = " + this.id.ToString(), sqlCon);
+                sqlCmd = new System.Data.SqlClient.SqlCommand("Update BulkVoiceRequests with(rowlock) Set Status = @Status, Reason = @Reason Where Id = @BulkRequestId", sqlCon);
+                // + ((isDeQueued == true) ? 9 : 0).ToString() + " Where Id = " + this.id.ToString(), sqlCon);
+                sqlCmd.Parameters.Add("@Status", System.Data.SqlDbType.TinyInt).Value = isDeQueued == true ? 9 : 0;
+                sqlCmd.Parameters.Add("@Reason", System.Data.SqlDbType.VarChar, 500).Value = reason;
+                sqlCmd.Parameters.Add("@BulkRequestId", System.Data.SqlDbType.BigInt).Value = this.id;
                 sqlCon.Open();
                 sqlCmd.ExecuteNonQuery();
                 sqlCon.Close();

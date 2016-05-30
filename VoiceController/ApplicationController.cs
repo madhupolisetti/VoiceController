@@ -132,6 +132,7 @@ namespace VoiceController
                                 bulkRequest.Status = Convert.ToByte(dataRow["Status"].ToString());
                                 if (dataRow["ProcessedCount"] != DBNull.Value)
                                     bulkRequest.ProcessedCount = Convert.ToInt32(dataRow["ProcessedCount"].ToString());
+                                bulkRequest.TotalCount = Convert.ToInt32(dataRow["TotalCount"].ToString());
                                 if (dataRow["RequestId"] != DBNull.Value)
                                     bulkRequest.VoiceRequestId = Convert.ToInt64(dataRow["RequestId"].ToString());
                                 AccountProcessor accountProcessor = null;
