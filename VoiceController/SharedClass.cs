@@ -10,6 +10,9 @@ namespace VoiceController
 {
     public class SharedClass
     {
+
+        public const string POST = "POST";
+
         private static string connectionString = (string)null;
         private static bool hasStopSignal = false;
         private static bool isServiceCleaned = true;

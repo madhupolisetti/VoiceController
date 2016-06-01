@@ -186,7 +186,7 @@ namespace VoiceController
         {
             Priority.PriorityMode priorityMode = (Priority.PriorityMode)input;
             SqlConnection connection = new SqlConnection(SharedClass.ConnectionString);
-            SqlCommand sqlCommand = new SqlCommand("GetCallingData", connection);
+            SqlCommand sqlCommand = new SqlCommand("VC_Get_PendingCalls", connection);
             sqlCommand.CommandType = CommandType.StoredProcedure;
             SqlDataAdapter da = null;
             DataSet ds = null;

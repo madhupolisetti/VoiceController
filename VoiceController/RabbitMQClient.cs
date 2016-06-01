@@ -8,6 +8,8 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Threading;
 using System.IO;
+using System.Data;
+using System.Data.SqlClient;
 
 namespace VoiceController
 {
@@ -32,8 +34,33 @@ namespace VoiceController
         public string callFlowsConsumerTag = null;
         public string hangupLazyConsumerTag = null;
         public IBasicProperties channelProperties = null;
+        
+        #region CALLFLOW_VARIABLES
+        
+        private JObject callFlowObject = null;
+        private SqlConnection callFlowsSqlConnection = null;
+        private SqlCommand callFlowsSqlCommand = null;
+        private JObject paramObject = null;
+        private string[] paramArray = null;
+        private Dictionary<string, object> paramPairs = null;
+        private long callId = 0;
+        private string eventName = string.Empty;
+        private long ringTimeStamp = 0;
+        private long answerTimeStamp = 0;
+        private long endTimeStamp = 0;
+        private byte retryAttempt = 0;
+        private string caller = string.Empty;
+        private string callee = string.Empty;
+        private string recordingUrl = string.Empty;
+        private string digits = string.Empty;
+        private string endBy = string.Empty;
+        private string callStatus = string.Empty;
+        
+        #endregion
         public void Start()
         {
+            callFlowsSqlConnection = new SqlConnection(SharedClass.ConnectionString);
+            callFlowsSqlCommand = new SqlCommand("VC_Create_CallFlow", callFlowsSqlConnection);
             this.connectThread = new Thread(new ThreadStart(this.ConnectToServer));
             this.connectThread.Name = "RMQConnector";
             this.connectThread.Start();
@@ -341,6 +368,58 @@ namespace VoiceController
                     return;
                 lock (SharedClass.Notifier)
                     SharedClass.Notifier.SendSms("CallFlows Thread Stopped with out receiving Service Stop Signal");
+            }
+        }
+        private void CreateCallFlow(string callData)
+        {
+            try
+            {
+                callFlowObject = null;
+                callFlowObject = JObject.Parse(callData);
+            }
+            catch (Exception e)
+            {
+                SharedClass.Logger.Error("Exception whil processing CallFlow (Message Parsing Failed) : " + callData + ", Reason : " + e.ToString());
+            }
+            if (callFlowObject != null)
+            {   
+                eventName = callFlowObject.SelectToken("event").ToString();
+                if (eventName.Equals(SharedClass.POST, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    paramObject = JObject.Parse(callFlowObject.SelectToken("parameters").ToString());
+                }
+                try
+                {
+                    callFlowsSqlCommand.Parameters.Clear();
+                    callFlowsSqlCommand.Parameters.Add("@CallId", SqlDbType.BigInt).Value = Convert.ToInt64(callFlowObject.SelectToken("sequencenumber").ToString());
+                    callFlowsSqlCommand.Parameters.Add("@Event", SqlDbType.VarChar, 10).Value = callFlowObject.SelectToken("event").ToString();
+                    callFlowsSqlCommand.Parameters.Add("@RingTimeStamp", SqlDbType.BigInt).Value = callFlowObject.SelectToken("ringtime") == null ? 0 : Convert.ToInt64(callFlowObject.SelectToken("ringtime").ToString());                    
+                    callFlowsSqlCommand.Parameters.Add("@AnswerTimeStamp", SqlDbType.BigInt).Value = callFlowObject.SelectToken("starttime") == null ? 0 : Convert.ToInt64(callFlowObject.SelectToken("starttime").ToString());
+                    callFlowsSqlCommand.Parameters.Add("@EndTimeStamp", SqlDbType.BigInt).Value = callFlowObject.SelectToken("endtime") == null ? 0 : Convert.ToInt64(callFlowObject.SelectToken("endtime").ToString());
+                    callFlowsSqlCommand.Parameters.Add("@EndBy", SqlDbType.VarChar, 20).Value = callFlowObject.SelectToken("hangupdisposition") == null ? "" : callFlowObject.SelectToken("hangupdisposition").ToString();
+                    callFlowsSqlCommand.Parameters.Add("@Caller", SqlDbType.VarChar, 20).Value = callFlowObject.SelectToken("caller") == null ? "" : callFlowObject.SelectToken("caller").ToString();
+                    callFlowsSqlCommand.Parameters.Add("@Callee", SqlDbType.VarChar, 20).Value = callFlowObject.SelectToken("callee") == null ? "" : callFlowObject.SelectToken("callee").ToString();
+                    callFlowsSqlCommand.Parameters.Add("@Digits", SqlDbType.VarChar, 20).Value = callFlowObject.SelectToken("digits") == null ? "" : callFlowObject.SelectToken("digits").ToString();
+                    callFlowsSqlCommand.Parameters.Add("@RecordingUrl", SqlDbType.VarChar, 200).Value = callFlowObject.SelectToken("recordurl") == null ? "" : callFlowObject.SelectToken("recordurl").ToString();
+                    callFlowsSqlCommand.Parameters.Add("@CallStatus", SqlDbType.VarChar, 20).Value = callFlowObject.SelectToken("callstatus").ToString();
+                    callFlowsSqlCommand.Parameters.Add("@PostingUrl", SqlDbType.VarChar, 200).Value = callFlowObject.SelectToken("postingurl").ToString();
+                    callFlowsSqlCommand.Parameters.Add("@PostingData", SqlDbType.VarChar, -1);
+                    callFlowsSqlCommand.Parameters.Add("@HttpMethod", SqlDbType.TinyInt);
+                    callFlowsSqlCommand.Parameters.Add("@ResponseData", SqlDbType.VarChar, -1);
+                    callFlowsSqlCommand.Parameters.Add("@TimeTaken", SqlDbType.Int);
+                    callFlowsSqlCommand.Parameters.Add("@StatusCode", SqlDbType.Int);
+                    callFlowsSqlCommand.Parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
+                    callFlowsSqlCommand.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+                    if (callFlowsSqlConnection.State != ConnectionState.Open)
+                        callFlowsSqlConnection.Open();
+                    callFlowsSqlCommand.ExecuteNonQuery();
+                    if(!Convert.ToBoolean(callFlowsSqlCommand.Parameters["@Success"].Value))
+                        SharedClass.Logger.Error("Exception whil processing CallFlow (False From DB) : " + callData + ", Reason : " + callFlowsSqlCommand.Parameters["@Message"].Value);
+                }
+                catch (Exception e)
+                {
+                    SharedClass.Logger.Error("Exception whil processing CallFlow : " + callData + ", Reason : " + e.ToString());
+                }
             }
         }
 
