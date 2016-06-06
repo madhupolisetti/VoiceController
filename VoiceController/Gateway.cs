@@ -9,6 +9,7 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Net;
 using Newtonsoft.Json.Linq;
+using System.Reflection;
 
 namespace VoiceController
 {
@@ -174,10 +175,10 @@ namespace VoiceController
                     num = this.highPriorityQueueLastSlno;
                     break;
                 case Priority.PriorityMode.Medium:
-                    num = this.MediumPriorityQueueLastSlno;
+                    num = this.mediumPriorityQueueLastSlno;
                     break;
                 default:
-                    num = this.LowPriorityQueueLastSlno;
+                    num = this.lowPriorityQueueLastSlno;
                     break;
             }
             return num;
@@ -214,7 +215,6 @@ namespace VoiceController
             while (!this.pushThreadMutex.WaitOne())
             {
                 Thread.Sleep(100);
-                SharedClass.Logger.Info("Waiting for pushThreadMutex to increase pollthreadscount");
             } 
             ++this.pollThreadsRunning;
             this.pushThreadMutex.ReleaseMutex();
@@ -238,24 +238,50 @@ namespace VoiceController
                     {
                         foreach (DataRow dataRow in ds.Tables[0].Rows)
                         {
-                            call = new Call();
-                            call.QueueTableSlno = Convert.ToInt64(dataRow["Id"]);
-                            call.CallId = Convert.ToInt64(dataRow["CallId"]);
-                            call.AccountId = Convert.ToInt64(dataRow["AccountId"]);
-                            call.UUID = dataRow["UUID"].ToString();
-                            call.CallerId = dataRow["CallerId"].ToString();
-                            call.Destination = dataRow["Destination"].ToString();
-                            call.Xml = dataRow["Xml"].ToString();
-                            call.RingUrl = dataRow["RingUrl"].ToString();
-                            call.AnswerUrl = dataRow["AnswerUrl"].ToString();
-                            call.HangupUrl = dataRow["HangupUrl"].ToString();
-                            call.Pulse = Convert.ToByte(dataRow["Pulse"]);
-                            call.PricePerPulse = float.Parse(dataRow["PricePerPulse"].ToString());
-                            call.PriorityValue = Convert.ToByte(dataRow["Priority"]);
-                            this.CallsQueue.EnQueue(call, priorityMode);
+                            try
+                            {
+                                call = new Call();
+                                call.QueueTableSlno = Convert.ToInt64(dataRow["Id"]);
+                                call.CallId = Convert.ToInt64(dataRow["CallId"]);
+                                call.AccountId = Convert.ToInt64(dataRow["AccountId"]);
+                                call.UUID = dataRow["UUID"].ToString();
+                                call.CallerId = dataRow["CallerId"].ToString();
+                                call.Destination = dataRow["Destination"].ToString();
+                                call.Xml = dataRow["Xml"].ToString();
+                                call.RingUrl = dataRow["RingUrl"].ToString();
+                                call.AnswerUrl = dataRow["AnswerUrl"].ToString();
+                                call.HangupUrl = dataRow["HangupUrl"].ToString();
+                                call.Pulse = Convert.ToByte(dataRow["Pulse"]);
+                                call.PricePerPulse = float.Parse(dataRow["PricePerPulse"].ToString());
+                                call.PriorityValue = Convert.ToByte(dataRow["Priority"]);
+                                this.CallsQueue.EnQueue(call, priorityMode);
+                            }
+                            catch (Exception e)
+                            {
+                                SharedClass.Logger.Error("Error In Constructing Call Object : " + e.ToString());
+                                try
+                                {
+                                    PropertyInfo[] properties = call.GetType().GetProperties();
+                                    foreach (PropertyInfo propertyInfo in properties)
+                                    {
+                                        if (propertyInfo.CanRead)
+                                        {
+                                            if (propertyInfo.GetValue(call) == DBNull.Value)
+                                                SharedClass.DumpLogger.Error(propertyInfo.Name + " : NULL");
+                                            else
+                                                SharedClass.DumpLogger.Error(propertyInfo.Name + " : " + propertyInfo.GetValue(call).ToString());
+                                        }
+                                    }
+                                }
+                                catch (Exception e1)
+                                { }
+                                finally
+                                {
+
+                                }
+                            }
                         }
-                        this.UpdateLastSlno(priorityMode, call.QueueTableSlno);
-                        Thread.Sleep(10000);
+                        this.UpdateLastSlno(priorityMode, call.QueueTableSlno);                        
                     }
                     else {
                         try
@@ -317,7 +343,7 @@ namespace VoiceController
             this.pushThreadMutex.ReleaseMutex();
             SharedClass.Logger.Info("Started");
             Call call = null;
-            while (this.shouldIProcess)
+            while (this.shouldIProcess && !SharedClass.HasStopSignal)
             {   
                 try
                 {   
@@ -417,8 +443,8 @@ namespace VoiceController
                     response.Close();
                     response.Dispose();
                     request = null;
-                    streamReader.Dispose();
                     streamWriter.Dispose();
+                    streamReader.Dispose();                    
                 }
                 catch (Exception ex)
                 {
@@ -452,21 +478,20 @@ namespace VoiceController
         }
         public void WaitForLines()
         {
-            long waitLoopCount = 0;
+            long waitCount = 0;
             while (this.currentConcurrency >= this.maximumConcurrency)
             {   
-                Thread.Sleep(2000);
-                SharedClass.Logger.Info("Waiting For Lines. Max : " + this.maximumConcurrency.ToString() + ", Current : " + this.currentConcurrency.ToString());
-                ++waitLoopCount;
-                if (waitLoopCount == 90) {
+                Thread.Sleep(1000);                
+                ++waitCount;
+                if (waitCount == 30) {
                     SharedClass.Logger.Info("Waiting For Lines. Max : " + this.maximumConcurrency.ToString() + ", Current : " + this.currentConcurrency.ToString());
-                    waitLoopCount = 1;
+                    waitCount = 0;
                 }
             }
         }
         protected void HeartBeat() {
-            while (!SharedClass.HasStopSignal) {
-                SharedClass.Logger.Info("Max : " + this.maximumConcurrency.ToString() + ", Current : " + this.currentConcurrency.ToString() + ", Available : " + (this.maximumConcurrency - this.currentConcurrency).ToString());
+            while (!SharedClass.HasStopSignal) {                
+                SharedClass.HeartBeatLogger.Info("Max : " + this.maximumConcurrency.ToString() + ", Current : " + this.currentConcurrency.ToString() + ", Available : " + (this.maximumConcurrency - this.currentConcurrency).ToString());
                 Thread.Sleep(SharedClass.GatewayHeartBeatSpan * 1000);
             }
         }
@@ -480,84 +505,19 @@ namespace VoiceController
         public string Name { get { return this.name; } set { this.name = value; } } 
         public string ConnectUrl { get { return this.connectUrl; } set { this.connectUrl = value; } } 
         public string Ip { get { return this.ip; } set { this.ip = value; } } 
-        public int Port { get { return this.port; } set { this.port = value; } }
-
-        public int MaximumConcurrency
-        {
-            get
-            {
-                return this.maximumConcurrency;
-            }
-            set
-            {
-                this.maximumConcurrency = value;
-            }
-        }
-
-        public int CurrenctConcurrency
-        {
-            get
-            {
-                return this.currentConcurrency;
-            }
-            set
-            {
-                this.currentConcurrency = value;
-            }
-        }
-
-        public string OriginationUrl
-        {
-            get
-            {
-                return this.originationUrl;
-            }
-            set
-            {
-                this.originationUrl = value;
-            }
-        }
-
-        public string ExtraDialString
-        {
-            get
-            {
-                return this.extraDialString;
-            }
-            set
-            {
-                this.extraDialString = value;
-            }
-        }
+        public int Port { get { return this.port; } set { this.port = value; } } 
+        public int MaximumConcurrency { get { return this.maximumConcurrency; } set { this.maximumConcurrency = value; } } 
+        public int CurrenctConcurrency { get { return this.currentConcurrency; } set { this.currentConcurrency = value; } } 
+        public string OriginationUrl { get { return this.originationUrl; } set { this.originationUrl = value; } }
+        public string ExtraDialString { get { return this.extraDialString; } set { this.extraDialString = value; } }
         public string CountryPrefix { get { return countryPrefix; } set { countryPrefix = value; } }
         public bool IsCountryPrefixAllowed { get { return isCountryPrefixAllowed; } set { isCountryPrefixAllowed = value; } }
         public string DialPrefix { get { return dialPrefix; } set { dialPrefix = value; } }
         public long HighPriorityQueueLastSlno { get { return this.highPriorityQueueLastSlno; } set { this.highPriorityQueueLastSlno = value; } }
         public long MediumPriorityQueueLastSlno { get { return this.mediumPriorityQueueLastSlno; } set { this.mediumPriorityQueueLastSlno = value; } }
         public long LowPriorityQueueLastSlno { get { return this.lowPriorityQueueLastSlno; } set { this.lowPriorityQueueLastSlno = value; } }
-        public byte PushThreadsTotal
-        {
-            get
-            {
-                return this.pushThreadsTotal;
-            }
-            set
-            {
-                this.pushThreadsTotal = value;
-            }
-        }
-
-        public byte PushThreadsRunning
-        {
-            get
-            {
-                return this.pushThreadsRunning;
-            }
-            set
-            {
-                this.pushThreadsRunning = value;
-            }
-        }
+        public byte PushThreadsTotal { get { return this.pushThreadsTotal; } set { this.pushThreadsTotal = value; } } 
+        public byte PushThreadsRunning { get { return this.pushThreadsRunning; } set { this.pushThreadsRunning = value; } }
         #endregion
     }
 }

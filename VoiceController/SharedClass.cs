@@ -13,13 +13,13 @@ namespace VoiceController
 
         public const string POST = "POST";
 
-        private static string connectionString = (string)null;
+        private static string connectionString = null;
         private static bool hasStopSignal = false;
         private static bool isServiceCleaned = true;
-        private static int gatewayHeartBeatSpan = 0;        
-        private static ILog logger = (ILog)null;
-        private static ILog dumpLogger = (ILog)null;
-        private static ILog heartBeatLogger = (ILog)null;
+        private static int gatewayHeartBeatSpan = 30;        
+        private static ILog logger = null;
+        private static ILog dumpLogger = null;
+        private static ILog heartBeatLogger = null;
         private static bool isHangupProcessInMemory = false;
         private static RabbitMQClient rabbitMQClient = null;
         private static HangupProcessor hangupProcessor = null;
@@ -30,14 +30,12 @@ namespace VoiceController
         private static Mutex activeAccountsMutex = new Mutex();
         private static Dictionary<long, AccountProcessor> activeAccountProcessors = new Dictionary<long, AccountProcessor>();
         private static Notifier notifier = new Notifier();
-        //private static Helper helper = new Helper();
-        private static Listener listener = (Listener)null;
+        private static Listener listener = null;
         private static int bulkRequestBatchCount = 500;
 
-        public static string ConnectionString { get { return SharedClass.connectionString; } set { SharedClass.connectionString = value; } } 
+        public static string ConnectionString { get { return SharedClass.connectionString; } set { SharedClass.connectionString = value; } }
         public static bool HasStopSignal { get { return SharedClass.hasStopSignal; } set { SharedClass.hasStopSignal = value; } } 
         public static bool IsServiceCleaned { get { return SharedClass.isServiceCleaned; } set { SharedClass.isServiceCleaned = value; } } 
-        //public static Priority PriorityObj { get { if (SharedClass.priorityObj == null) SharedClass.priorityObj = new Priority(); return SharedClass.priorityObj; } set { SharedClass.priorityObj = value; } } 
         public static ILog Logger { get { return SharedClass.logger; } } 
         public static ILog DumpLogger { get { return SharedClass.dumpLogger; } } 
         public static ILog HeartBeatLogger { get { return SharedClass.heartBeatLogger; } } 
@@ -52,14 +50,6 @@ namespace VoiceController
         public static Dictionary<long, AccountProcessor> ActiveAccountProcessors { get { return SharedClass.activeAccountProcessors; } }
         public static Notifier Notifier { get { return SharedClass.notifier; } }
         public static int BulkRequestBatchCount { get { return bulkRequestBatchCount; } set { bulkRequestBatchCount = value; } }
-        //public static Helper Helper
-        //{
-        //    get
-        //    {
-        //        return SharedClass.helper;
-        //    }
-        //}
-
         public static Listener Listener { get { if (SharedClass.listener == null) SharedClass.listener = new Listener(); return SharedClass.listener; } set { SharedClass.listener = value; } } 
         public static void InitiaLizeLogger() {
             GlobalContext.Properties["LogName"] = DateTime.Now.ToString("yyyyMMdd");

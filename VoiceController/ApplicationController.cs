@@ -47,6 +47,7 @@ namespace VoiceController
         public void Stop()
         {
             if (SharedClass.RabbitMQClient != null) {
+                SharedClass.Logger.Info("Stopping RabbitMQ Client");
                 SharedClass.RabbitMQClient.Stop();
             }
             while (SharedClass.IsHangupConsumerRunning)
@@ -60,25 +61,48 @@ namespace VoiceController
                 Thread.Sleep(1000);
             }
             if (SharedClass.HangupProcessor != null) {
+                SharedClass.Logger.Info("Stopping HangupProcessor");
                 SharedClass.HangupProcessor.Stop();
-            }            
-            foreach (KeyValuePair<long, AccountProcessor> keyValuePair in SharedClass.ActiveAccountProcessors)
-            {
-                keyValuePair.Value.Stop();
             }
+            try
+            {
+                foreach (KeyValuePair<long, AccountProcessor> keyValuePair in SharedClass.ActiveAccountProcessors)
+                {
+                    keyValuePair.Value.Stop();
+                }
+            }
+            catch (Exception e)
+            {
+                SharedClass.Logger.Error("Exception Stopping Active Account Processors. Reason : " + e.ToString());
+            }            
             foreach (KeyValuePair<int, Gateway> keyValuePair in SharedClass.GatewayMap) {
                 Thread gatewayStopThread = new Thread(new ThreadStart(keyValuePair.Value.Stop));
                 gatewayStopThread.Name = keyValuePair.Value.Name + "_Stop";
                 gatewayStopThread.Start();
             }
+            byte waitCount = 0;
             while (SharedClass.GatewayMap.Count > 0)
             {
                 SharedClass.Logger.Info(("Gateways Object Not Yet Cleaned, Active Gateways : " + SharedClass.GatewayMap.Count.ToString()));
-                SharedClass.Logger.Info("GatewayId : " + SharedClass.GatewayMap.First().Value.Id);
-                SharedClass.Logger.Info("Push Threads Running : " + SharedClass.GatewayMap.First().Value.PushThreadsRunning);                
+                if (waitCount == 10)
+                {
+                    try
+                    {
+                        foreach (KeyValuePair<int, Gateway> keyValuePair in SharedClass.GatewayMap)
+                        {
+                            SharedClass.Logger.Info("GatewayId : " + keyValuePair.Key.ToString() + ", RunningPushThreadCount : " + keyValuePair.Value.PushThreadsRunning);
+                        }
+                    }
+                    catch (Exception e)
+                    { }
+                    waitCount = 0;
+                }
+                ++waitCount;
                 Thread.Sleep(1000);
             }
-            if (SharedClass.Listener != null) {
+            if (SharedClass.Listener != null)
+            {
+                SharedClass.Logger.Info("Stopping Listener");
                 SharedClass.Listener.Destroy();
             }
             while (this.isIamPolling)
@@ -152,14 +176,19 @@ namespace VoiceController
                             }
                             catch (Exception ex1)
                             {
-                                SharedClass.Logger.Error("Error In BulkPoll For Loop : " + ex1.ToString());
-                                PropertyInfo[] properties = bulkRequest.GetType().GetProperties();
+                                SharedClass.Logger.Error("Error In BulkPoll For Loop : " + ex1.ToString());                                
                                 try
                                 {
+                                    PropertyInfo[] properties = bulkRequest.GetType().GetProperties();
                                     foreach (PropertyInfo propertyInfo in properties)
                                     {
                                         if (propertyInfo.CanRead)
-                                            SharedClass.DumpLogger.Error(propertyInfo.Name + " : " + propertyInfo.GetValue(bulkRequest).ToString());
+                                        { 
+                                            if(propertyInfo.GetValue(bulkRequest) == DBNull.Value)
+                                                SharedClass.DumpLogger.Error(propertyInfo.Name + " : NULL");
+                                            else
+                                                SharedClass.DumpLogger.Error(propertyInfo.Name + " : " + propertyInfo.GetValue(bulkRequest).ToString());
+                                        }   
                                     }
                                 }
                                 catch (Exception ex2)
@@ -214,7 +243,7 @@ namespace VoiceController
 
         public void LoadGateways()
         {
-            SharedClass.Logger.Info("Getting Gateways");
+            SharedClass.Logger.Info("Getting Gateways List From Database");
             SqlCommand sqlCommand = (SqlCommand)null;
             try
             {
@@ -242,7 +271,8 @@ namespace VoiceController
                             gateway.OriginationUrl = dataRow["OriginationUrl"].ToString();
                             if (!gateway.OriginationUrl.EndsWith("/"))
                                 gateway.OriginationUrl += "/";
-                            gateway.ExtraDialString = dataRow["ExtraDialString"].ToString();
+                            if(dataRow["ExtraDialString"] != DBNull.Value)
+                                gateway.ExtraDialString = dataRow["ExtraDialString"].ToString();
                             gateway.CountryPrefix = dataRow["CountryPrefix"].ToString();
                             gateway.IsCountryPrefixAllowed = Convert.ToBoolean(dataRow["IsCountryPrefixAllowed"].ToString());
                             gateway.DialPrefix = dataRow["DialPrefix"].ToString();
