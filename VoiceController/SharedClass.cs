@@ -10,125 +10,291 @@ namespace VoiceController
 {
     public class SharedClass
     {
-
+        #region CONSTANT VARIABLES
         public const string POST = "POST";
+        #endregion
 
-        private static string connectionString = null;
-        private static bool hasStopSignal = false;
-        private static bool isServiceCleaned = true;
-        private static int gatewayHeartBeatSpan = 30;        
-        private static ILog logger = null;
-        private static ILog dumpLogger = null;
-        private static ILog heartBeatLogger = null;
-        private static bool isHangupProcessInMemory = false;
-        private static RabbitMQClient rabbitMQClient = null;
-        private static HangupProcessor hangupProcessor = null;
-        private static bool isHangupConsumerRunning = false;
-        private static bool isCallFlowsConsumerRunning = false;
-        private static bool isHangupLazyProcessorRunning = false;
-        private static Dictionary<int, Gateway> gatewayMap = new Dictionary<int, Gateway>();
-        private static Mutex activeAccountsMutex = new Mutex();
-        private static Dictionary<long, AccountProcessor> activeAccountProcessors = new Dictionary<long, AccountProcessor>();
-        private static Notifier notifier = new Notifier();
-        private static Listener listener = null;
-        private static int bulkRequestBatchCount = 500;
+        #region MEMBER VARIABLES PRIVATE
+        private static string _connectionString = null;
+        private static bool _hasStopSignal = false;
+        private static bool _isServiceCleaned = true;
+        private static int _gatewayHeartBeatSpan = 30;
+        private static ILog _logger = null;
+        private static ILog _dumpLogger = null;
+        private static ILog _heartBeatLogger = null;
+        private static bool _isHangupProcessInMemory = false;
+        private static RabbitMQClient _rabbitMQClient = null;
+        private static HangupProcessor _hangupProcessor = null;
+        private static bool _isHangupConsumerRunning = false;
+        private static bool _isCallFlowsConsumerRunning = false;
+        private static bool _isHangupLazyProcessorRunning = false;
+        private static Dictionary<int, Gateway> _gatewayMap = new Dictionary<int, Gateway>();
+        private static Mutex _activeAccountsMutex = new Mutex();
+        private static Dictionary<int, AccountProcessor> _activeAccountProcessors = new Dictionary<int, AccountProcessor>();
+        private static Notifier _notifier = new Notifier();
+        private static Listener _listener = null;
+        private static int _bulkRequestBatchCount = 500;
+        #endregion
 
-        public static string ConnectionString { get { return SharedClass.connectionString; } set { SharedClass.connectionString = value; } }
-        public static bool HasStopSignal { get { return SharedClass.hasStopSignal; } set { SharedClass.hasStopSignal = value; } } 
-        public static bool IsServiceCleaned { get { return SharedClass.isServiceCleaned; } set { SharedClass.isServiceCleaned = value; } } 
-        public static ILog Logger { get { return SharedClass.logger; } } 
-        public static ILog DumpLogger { get { return SharedClass.dumpLogger; } } 
-        public static ILog HeartBeatLogger { get { return SharedClass.heartBeatLogger; } } 
-        public static int GatewayHeartBeatSpan { get { return SharedClass.gatewayHeartBeatSpan; } set { SharedClass.gatewayHeartBeatSpan = value; } } 
-        public static bool IsHangupProcessInMemory { get { return SharedClass.isHangupProcessInMemory; } set { SharedClass.isHangupProcessInMemory = value; } } 
-        public static bool IsHangupConsumerRunning { get { return SharedClass.isHangupConsumerRunning; } set { SharedClass.isHangupConsumerRunning = value; } } 
-        public static bool IsCallFlowsConsumerRunning { get { return SharedClass.isCallFlowsConsumerRunning; } set { SharedClass.isCallFlowsConsumerRunning = value; } } 
-        public static RabbitMQClient RabbitMQClient { get { return SharedClass.rabbitMQClient; } set { SharedClass.rabbitMQClient = value; } }
-        public static HangupProcessor HangupProcessor { get { return SharedClass.hangupProcessor; } set { SharedClass.hangupProcessor = value; } } 
-        public static bool IsHangupLazyProcessorRunning { get { return SharedClass.isHangupLazyProcessorRunning; } set { SharedClass.isHangupLazyProcessorRunning = value; } } 
-        public static Dictionary<int, Gateway> GatewayMap { get { return SharedClass.gatewayMap; } } 
-        public static Dictionary<long, AccountProcessor> ActiveAccountProcessors { get { return SharedClass.activeAccountProcessors; } }
-        public static Notifier Notifier { get { return SharedClass.notifier; } }
-        public static int BulkRequestBatchCount { get { return bulkRequestBatchCount; } set { bulkRequestBatchCount = value; } }
-        public static Listener Listener { get { if (SharedClass.listener == null) SharedClass.listener = new Listener(); return SharedClass.listener; } set { SharedClass.listener = value; } } 
-        public static void InitiaLizeLogger() {
+        #region PROPERTIES
+        public static string ConnectionString
+        {
+            get
+            {
+                return SharedClass._connectionString;
+            }
+            set
+            {
+                SharedClass._connectionString = value;
+            }
+        }
+        public static bool HasStopSignal 
+        { 
+            get 
+            { 
+                return SharedClass._hasStopSignal; 
+            } 
+            set 
+            { SharedClass._hasStopSignal = value; 
+            } 
+        }
+        public static bool IsServiceCleaned 
+        { 
+            get 
+            { 
+                return SharedClass._isServiceCleaned; 
+            } 
+            set 
+            { 
+                SharedClass._isServiceCleaned = value; 
+            } 
+        }
+        public static ILog Logger 
+        { 
+            get 
+            { 
+                return SharedClass._logger; 
+            } 
+        }
+        public static ILog DumpLogger 
+        { 
+            get 
+            { 
+                return SharedClass._dumpLogger; 
+            } 
+        }
+        public static ILog HeartBeatLogger 
+        { 
+            get 
+            { 
+                return SharedClass._heartBeatLogger; 
+            } 
+        }
+        public static int GatewayHeartBeatSpan 
+        { 
+            get 
+            { 
+                return 
+                    SharedClass._gatewayHeartBeatSpan;
+            } 
+            set 
+            { 
+                SharedClass._gatewayHeartBeatSpan = value; 
+            } 
+        }
+        public static bool IsHangupProcessInMemory 
+        { 
+            get 
+            { 
+                return SharedClass._isHangupProcessInMemory;
+            } 
+            set 
+            { 
+                SharedClass._isHangupProcessInMemory = value; 
+            } 
+        }
+        public static bool IsHangupConsumerRunning 
+        { 
+            get 
+            { 
+                return SharedClass._isHangupConsumerRunning; 
+            } 
+            set 
+            { 
+                SharedClass._isHangupConsumerRunning = value; 
+            } 
+        }
+        public static bool IsCallFlowsConsumerRunning 
+        { 
+            get 
+            { 
+                return SharedClass._isCallFlowsConsumerRunning; 
+            } 
+            set 
+            { 
+                SharedClass._isCallFlowsConsumerRunning = value;
+            } 
+        }
+        public static RabbitMQClient RabbitMQClient 
+        { 
+            get 
+            { 
+                return SharedClass._rabbitMQClient; 
+            } 
+            set 
+            { 
+                SharedClass._rabbitMQClient = value; 
+            } 
+        }
+        public static HangupProcessor HangupProcessor 
+        { 
+            get 
+            { 
+                return SharedClass._hangupProcessor; 
+            } 
+            set 
+            { 
+                SharedClass._hangupProcessor = value; 
+            } 
+        }
+        public static bool IsHangupLazyProcessorRunning 
+        { 
+            get 
+            { 
+                return SharedClass._isHangupLazyProcessorRunning; 
+            } 
+            set 
+            { 
+                SharedClass._isHangupLazyProcessorRunning = value; 
+            } 
+        }
+        public static Dictionary<int, Gateway> GatewayMap 
+        { 
+            get 
+            { 
+                return SharedClass._gatewayMap;
+            } 
+        }
+        public static Dictionary<int, AccountProcessor> ActiveAccountProcessors 
+        { 
+            get 
+            { 
+                return SharedClass._activeAccountProcessors; 
+            } 
+        }
+        public static Notifier Notifier 
+        { 
+            get 
+            { 
+                return SharedClass._notifier; 
+            } 
+        }
+        public static int BulkRequestBatchCount 
+        { 
+            get 
+            { 
+                return _bulkRequestBatchCount; 
+            } 
+            set 
+            { 
+                _bulkRequestBatchCount = value;
+            } 
+        }
+        public static Listener Listener 
+        { 
+            get 
+            { 
+                if (SharedClass._listener == null)
+                    SharedClass._listener = new Listener(); 
+                return SharedClass._listener; 
+            } 
+            set 
+            { 
+                SharedClass._listener = value; 
+            } 
+        }
+        #endregion
+        #region PUBLIC METHODS
+        public static void InitiaLizeLogger()
+        {
             GlobalContext.Properties["LogName"] = DateTime.Now.ToString("yyyyMMdd");
             log4net.Config.XmlConfigurator.Configure();
-            SharedClass.logger = LogManager.GetLogger("Log");
-            SharedClass.dumpLogger = LogManager.GetLogger("DumpLogger");
-            SharedClass.heartBeatLogger = LogManager.GetLogger("HeartBeatLogger");
+            _logger = LogManager.GetLogger("Log");
+            _dumpLogger = LogManager.GetLogger("DumpLogger");
+            _heartBeatLogger = LogManager.GetLogger("HeartBeatLogger");
         }
 
-        public static bool AddAccountProcessor(long accountId, AccountProcessor Processor)
+        public static bool AddAccountProcessor(int accountId, AccountProcessor processor)
         {
             bool flag = false;
-            SharedClass.logger.Info("Adding AccountID " + accountId.ToString() + " Into ActiveAccountProcessors");
+            _logger.Info("Adding AccountID " + accountId.ToString() + " Into ActiveAccountProcessors");
             try
             {
-                while (!SharedClass.activeAccountsMutex.WaitOne())
+                while (!_activeAccountsMutex.WaitOne())
                     Thread.Sleep(10);
-                if (!SharedClass.activeAccountProcessors.ContainsKey(accountId))
-                    SharedClass.activeAccountProcessors.Add(accountId, Processor);
+                if (!_activeAccountProcessors.ContainsKey(accountId))
+                    _activeAccountProcessors.Add(accountId, processor);
                 flag = true;
             }
             catch (Exception ex)
             {
-                SharedClass.logger.Error("Error Adding UserProcessor To Map : " + ex.Message);
+                _logger.Error("Error Adding UserProcessor To Map : " + ex.Message);
             }
             finally
             {
-                SharedClass.activeAccountsMutex.ReleaseMutex();
+                _activeAccountsMutex.ReleaseMutex();
             }
             return flag;
         }
 
-        public static bool ReleaseAccountProcessor(long accountId)
+        public static bool ReleaseAccountProcessor(int accountId)
         {
             bool flag = false;
-            SharedClass.logger.Info("Releasing AccountId " + accountId.ToString() + " From ActiveAccountProcessors Map");
+            _logger.Info("Releasing AccountId " + accountId.ToString() + " From ActiveAccountProcessors Map");
             try
             {
-                while (!SharedClass.activeAccountsMutex.WaitOne())
+                while (!_activeAccountsMutex.WaitOne())
                     Thread.Sleep(10);
-                if (SharedClass.activeAccountProcessors.ContainsKey(accountId))
-                    SharedClass.activeAccountProcessors.Remove(accountId);
+                if (_activeAccountProcessors.ContainsKey(accountId))
+                    _activeAccountProcessors.Remove(accountId);
                 flag = true;
             }
             catch (Exception ex)
             {
-                SharedClass.logger.Error("Error Removing UserProcessor From Map : " + ex.Message);
+                _logger.Error("Error Removing UserProcessor From Map : " + ex.Message);
             }
             finally
             {
-                SharedClass.activeAccountsMutex.ReleaseMutex();
+                _activeAccountsMutex.ReleaseMutex();
             }
             return flag;
         }
 
-        public static bool IsAccountProcessorActive(long accountId)
+        public static bool IsAccountProcessorActive(int accountId)
         {
-            bool flag = false;
+            bool isActive = false;
             try
             {
-                while (!SharedClass.activeAccountsMutex.WaitOne())
+                while (!_activeAccountsMutex.WaitOne())
                     Thread.Sleep(10);
-                if (SharedClass.activeAccountProcessors.ContainsKey(accountId))
-                    flag = true;
+                if (_activeAccountProcessors.ContainsKey(accountId))
+                    isActive = true;
             }
             catch (Exception ex)
             {
-                SharedClass.logger.Error("Error While Chcecking ActiveAccountMap, Reason : " + ex.ToString());
+                _logger.Error("Error While Chcecking ActiveAccountMap, Reason : " + ex.ToString());
             }
             finally
             {
-                SharedClass.activeAccountsMutex.ReleaseMutex();
+                _activeAccountsMutex.ReleaseMutex();
             }
-            return flag;
+            return isActive;
         }
 
         public static long CurrentTimeStamp()
         {
             return Convert.ToInt64((DateTime.Now - new DateTime(1970, 1, 1)).TotalMilliseconds);
         }
+        #endregion        
     }
 }

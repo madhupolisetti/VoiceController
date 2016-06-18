@@ -404,8 +404,10 @@ namespace VoiceController
             StreamWriter streamWriter = null;
             try
             {
-                if (!this.IsCountryPrefixAllowed && this.dialPrefix.Length > 0 && this.countryPrefix.Length > 0 && call.Destination.StartsWith(this.countryPrefix))
-                    call.Destination = this.dialPrefix + call.Destination.Substring(this.countryPrefix.Length);
+                if (!this.isCountryPrefixAllowed && this.countryPrefix.Length > 0 && call.Destination.StartsWith(this.countryPrefix))
+                    call.Destination = call.Destination.Substring(this.countryPrefix.Length);
+                if (this.dialPrefix.Length > 0)
+                    call.Destination = this.dialPrefix + call.Destination;                
                 string payload = "From=" + call.CallerId + "&To=" + call.Destination + "&OriginationUUID=" + call.UUID + "&Gateways=" + this.OriginationUrl;
                 payload += "&SequenceNumber=" + call.CallId + "&AnswerUrl=" + call.AnswerUrl + "&HangupUrl=" + ((call.HangupUrl != null && call.HangupUrl.Trim().Length > 0) ? call.HangupUrl : call.AnswerUrl);
                 payload += "&NotifyCallFlow=RMQ&CallBackByRMQ=1&GwID=" + this.id.ToString() + "&";

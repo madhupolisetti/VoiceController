@@ -13,7 +13,7 @@ namespace VoiceController
 {
     public class AccountProcessor
     {
-        private long accountId = 0L;
+        private int accountId = 0;
         private byte accountType = 1;
         private Queue<BulkRequest> bulkRequestsQueue = new Queue<BulkRequest>();
         private Mutex queueMutex = new Mutex();
@@ -303,7 +303,7 @@ namespace VoiceController
             byte concurrentThreads = 1;            
             return concurrentThreads;
         }
-        public long AccountId { get { return this.accountId; } set { this.accountId = value; } } 
+        public int AccountId { get { return this.accountId; } set { this.accountId = value; } } 
         public byte MaxThreads { get { return this.maxThreads; } set { this.maxThreads = value; } } 
         public byte ActiveThreads { get { return this.activeThreads; } set { this.activeThreads = value; } }
         public byte AccountType { get { return this.accountType; } set { this.accountType = value; } }

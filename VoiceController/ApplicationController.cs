@@ -66,7 +66,7 @@ namespace VoiceController
             }
             try
             {
-                foreach (KeyValuePair<long, AccountProcessor> keyValuePair in SharedClass.ActiveAccountProcessors)
+                foreach (KeyValuePair<int, AccountProcessor> keyValuePair in SharedClass.ActiveAccountProcessors)
                 {
                     keyValuePair.Value.Stop();
                 }
@@ -162,11 +162,11 @@ namespace VoiceController
                                 AccountProcessor accountProcessor = null;
                                 lock (SharedClass.ActiveAccountProcessors)
                                 {
-                                    SharedClass.ActiveAccountProcessors.TryGetValue(Convert.ToInt64(dataRow["AccountId"].ToString()), out accountProcessor);
+                                    SharedClass.ActiveAccountProcessors.TryGetValue(Convert.ToInt32(dataRow["AccountId"].ToString()), out accountProcessor);
                                     if (accountProcessor == null)
                                     {
                                         accountProcessor = new AccountProcessor();
-                                        accountProcessor.AccountId = Convert.ToInt64(dataRow["AccountId"].ToString());
+                                        accountProcessor.AccountId = Convert.ToInt32(dataRow["AccountId"].ToString());
                                         Thread accountProcessorThread = new Thread(new ThreadStart(accountProcessor.Start));
                                         accountProcessorThread.Name = "Account_" + dataRow["AccountId"];
                                         accountProcessorThread.Start();
