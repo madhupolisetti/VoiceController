@@ -10,12 +10,9 @@ namespace VoiceController
 {
     public class SharedClass
     {
-        #region CONSTANT VARIABLES
-        public const string POST = "POST";
-        #endregion
-
         #region MEMBER VARIABLES PRIVATE
-        private static string _connectionString = null;
+        private static Dictionary<Environment, string> _connectionStrings = new Dictionary<Environment, string>();
+        private static bool _pollStaging = false;
         private static bool _hasStopSignal = false;
         private static bool _isServiceCleaned = true;
         private static int _gatewayHeartBeatSpan = 30;
@@ -36,184 +33,6 @@ namespace VoiceController
         private static int _bulkRequestBatchCount = 500;
         #endregion
 
-        #region PROPERTIES
-        public static string ConnectionString
-        {
-            get
-            {
-                return SharedClass._connectionString;
-            }
-            set
-            {
-                SharedClass._connectionString = value;
-            }
-        }
-        public static bool HasStopSignal 
-        { 
-            get 
-            { 
-                return SharedClass._hasStopSignal; 
-            } 
-            set 
-            { SharedClass._hasStopSignal = value; 
-            } 
-        }
-        public static bool IsServiceCleaned 
-        { 
-            get 
-            { 
-                return SharedClass._isServiceCleaned; 
-            } 
-            set 
-            { 
-                SharedClass._isServiceCleaned = value; 
-            } 
-        }
-        public static ILog Logger 
-        { 
-            get 
-            { 
-                return SharedClass._logger; 
-            } 
-        }
-        public static ILog DumpLogger 
-        { 
-            get 
-            { 
-                return SharedClass._dumpLogger; 
-            } 
-        }
-        public static ILog HeartBeatLogger 
-        { 
-            get 
-            { 
-                return SharedClass._heartBeatLogger; 
-            } 
-        }
-        public static int GatewayHeartBeatSpan 
-        { 
-            get 
-            { 
-                return 
-                    SharedClass._gatewayHeartBeatSpan;
-            } 
-            set 
-            { 
-                SharedClass._gatewayHeartBeatSpan = value; 
-            } 
-        }
-        public static bool IsHangupProcessInMemory 
-        { 
-            get 
-            { 
-                return SharedClass._isHangupProcessInMemory;
-            } 
-            set 
-            { 
-                SharedClass._isHangupProcessInMemory = value; 
-            } 
-        }
-        public static bool IsHangupConsumerRunning 
-        { 
-            get 
-            { 
-                return SharedClass._isHangupConsumerRunning; 
-            } 
-            set 
-            { 
-                SharedClass._isHangupConsumerRunning = value; 
-            } 
-        }
-        public static bool IsCallFlowsConsumerRunning 
-        { 
-            get 
-            { 
-                return SharedClass._isCallFlowsConsumerRunning; 
-            } 
-            set 
-            { 
-                SharedClass._isCallFlowsConsumerRunning = value;
-            } 
-        }
-        public static RabbitMQClient RabbitMQClient 
-        { 
-            get 
-            { 
-                return SharedClass._rabbitMQClient; 
-            } 
-            set 
-            { 
-                SharedClass._rabbitMQClient = value; 
-            } 
-        }
-        public static HangupProcessor HangupProcessor 
-        { 
-            get 
-            { 
-                return SharedClass._hangupProcessor; 
-            } 
-            set 
-            { 
-                SharedClass._hangupProcessor = value; 
-            } 
-        }
-        public static bool IsHangupLazyProcessorRunning 
-        { 
-            get 
-            { 
-                return SharedClass._isHangupLazyProcessorRunning; 
-            } 
-            set 
-            { 
-                SharedClass._isHangupLazyProcessorRunning = value; 
-            } 
-        }
-        public static Dictionary<int, Gateway> GatewayMap 
-        { 
-            get 
-            { 
-                return SharedClass._gatewayMap;
-            } 
-        }
-        public static Dictionary<int, AccountProcessor> ActiveAccountProcessors 
-        { 
-            get 
-            { 
-                return SharedClass._activeAccountProcessors; 
-            } 
-        }
-        public static Notifier Notifier 
-        { 
-            get 
-            { 
-                return SharedClass._notifier; 
-            } 
-        }
-        public static int BulkRequestBatchCount 
-        { 
-            get 
-            { 
-                return _bulkRequestBatchCount; 
-            } 
-            set 
-            { 
-                _bulkRequestBatchCount = value;
-            } 
-        }
-        public static Listener Listener 
-        { 
-            get 
-            { 
-                if (SharedClass._listener == null)
-                    SharedClass._listener = new Listener(); 
-                return SharedClass._listener; 
-            } 
-            set 
-            { 
-                SharedClass._listener = value; 
-            } 
-        }
-        #endregion
         #region PUBLIC METHODS
         public static void InitiaLizeLogger()
         {
@@ -222,6 +41,20 @@ namespace VoiceController
             _logger = LogManager.GetLogger("Log");
             _dumpLogger = LogManager.GetLogger("DumpLogger");
             _heartBeatLogger = LogManager.GetLogger("HeartBeatLogger");
+        }
+        public static void SetConnectionString(string connectionString, Environment environment)
+        {
+            if (_connectionStrings.ContainsKey(environment))
+                _connectionStrings[environment] = connectionString;
+            else
+                _connectionStrings.Add(environment, connectionString);
+        }
+        public static string GetConnectionString(Environment environment)
+        {
+            if (!_connectionStrings.ContainsKey(environment))
+                throw new KeyNotFoundException("Key " + environment.ToString() + " Not Found in the dictionary");
+            else
+                return _connectionStrings[environment];
         }
 
         public static bool AddAccountProcessor(int accountId, AccountProcessor processor)
@@ -296,5 +129,189 @@ namespace VoiceController
             return Convert.ToInt64((DateTime.Now - new DateTime(1970, 1, 1)).TotalMilliseconds);
         }
         #endregion        
+        #region PROPERTIES
+        //public static string ConnectionString
+        //{
+        //    get
+        //    {
+        //        return SharedClass._connectionString;
+        //    }
+        //    set
+        //    {
+        //        SharedClass._connectionString = value;
+        //    }
+        //}
+        public static bool PollStaging
+        {
+            get { return _pollStaging; }
+            set { _pollStaging = value; }
+        }
+        public static bool HasStopSignal
+        {
+            get
+            {
+                return SharedClass._hasStopSignal;
+            }
+            set
+            {
+                SharedClass._hasStopSignal = value;
+            }
+        }
+        public static bool IsServiceCleaned
+        {
+            get
+            {
+                return SharedClass._isServiceCleaned;
+            }
+            set
+            {
+                SharedClass._isServiceCleaned = value;
+            }
+        }
+        public static ILog Logger
+        {
+            get
+            {
+                return SharedClass._logger;
+            }
+        }
+        public static ILog DumpLogger
+        {
+            get
+            {
+                return SharedClass._dumpLogger;
+            }
+        }
+        public static ILog HeartBeatLogger
+        {
+            get
+            {
+                return SharedClass._heartBeatLogger;
+            }
+        }
+        public static int GatewayHeartBeatSpan
+        {
+            get
+            {
+                return
+                    SharedClass._gatewayHeartBeatSpan;
+            }
+            set
+            {
+                SharedClass._gatewayHeartBeatSpan = value;
+            }
+        }
+        public static bool IsHangupProcessInMemory
+        {
+            get
+            {
+                return SharedClass._isHangupProcessInMemory;
+            }
+            set
+            {
+                SharedClass._isHangupProcessInMemory = value;
+            }
+        }
+        public static bool IsHangupConsumerRunning
+        {
+            get
+            {
+                return SharedClass._isHangupConsumerRunning;
+            }
+            set
+            {
+                SharedClass._isHangupConsumerRunning = value;
+            }
+        }
+        public static bool IsCallFlowsConsumerRunning
+        {
+            get
+            {
+                return SharedClass._isCallFlowsConsumerRunning;
+            }
+            set
+            {
+                SharedClass._isCallFlowsConsumerRunning = value;
+            }
+        }
+        public static RabbitMQClient RabbitMQClient
+        {
+            get
+            {
+                return SharedClass._rabbitMQClient;
+            }
+            set
+            {
+                SharedClass._rabbitMQClient = value;
+            }
+        }
+        public static HangupProcessor HangupProcessor
+        {
+            get
+            {
+                return SharedClass._hangupProcessor;
+            }
+            set
+            {
+                SharedClass._hangupProcessor = value;
+            }
+        }
+        public static bool IsHangupLazyProcessorRunning
+        {
+            get
+            {
+                return SharedClass._isHangupLazyProcessorRunning;
+            }
+            set
+            {
+                SharedClass._isHangupLazyProcessorRunning = value;
+            }
+        }
+        public static Dictionary<int, Gateway> GatewayMap
+        {
+            get
+            {
+                return SharedClass._gatewayMap;
+            }
+        }
+        public static Dictionary<int, AccountProcessor> ActiveAccountProcessors
+        {
+            get
+            {
+                return SharedClass._activeAccountProcessors;
+            }
+        }
+        public static Notifier Notifier
+        {
+            get
+            {
+                return SharedClass._notifier;
+            }
+        }
+        public static int BulkRequestBatchCount
+        {
+            get
+            {
+                return _bulkRequestBatchCount;
+            }
+            set
+            {
+                _bulkRequestBatchCount = value;
+            }
+        }
+        public static Listener Listener
+        {
+            get
+            {
+                if (SharedClass._listener == null)
+                    SharedClass._listener = new Listener();
+                return SharedClass._listener;
+            }
+            set
+            {
+                SharedClass._listener = value;
+            }
+        }
+        #endregion
     }
 }

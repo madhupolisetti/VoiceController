@@ -51,6 +51,7 @@
     <Reference Include="System.Configuration.Install" />
     <Reference Include="System.Core" />
     <Reference Include="System.Management" />
+    <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -62,10 +63,15 @@
     <Compile Include="AccountProcessor.cs" />
     <Compile Include="ApplicationController.cs" />
     <Compile Include="BulkRequest.cs" />
+    <Compile Include="BulkRequestId.cs" />
     <Compile Include="Call.cs" />
     <Compile Include="CallsQueue.cs" />
+    <Compile Include="CallsQueueSlno.cs" />
+    <Compile Include="CustomEntensions.cs" />
+    <Compile Include="Environment.cs" />
     <Compile Include="Gateway.cs" />
     <Compile Include="HangupProcessor.cs" />
+    <Compile Include="Label.cs" />
     <Compile Include="Listener.cs" />
     <Compile Include="Notifier.cs" />
     <Compile Include="Priority.cs" />

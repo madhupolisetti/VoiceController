@@ -9,29 +9,30 @@ namespace VoiceController
     [Serializable]
     public class Call
     {
-        private long queueTableSlno = 0L;
-        private long mobileId = 0L;
-        private long accountId = 0L;
-        private string uuid = "";
-        private string callerId = "";
-        private string destination = "";
-        private string xml = "";
-        private string ringUrl = "";
-        private string answerUrl = "";
-        private string hangupUrl = "";
-        private byte pulse = 0;
-        private float pricePerPulse = 0.0f;
-        private byte priorityValue = 0;
+        private long _queueTableSlno = 0;
+        private long _mobileId = 0;
+        private long _accountId = 0;
+        private string _uuid = string.Empty;
+        private string _callerId = string.Empty;
+        private string _destination = string.Empty;
+        private string _xml = string.Empty;
+        private string _ringUrl = string.Empty;
+        private string _answerUrl = string.Empty;
+        private string _hangupUrl = string.Empty;
+        private byte _pulse = 0;
+        private float _pricePerPulse = 0.0f;
+        private byte _priorityValue = 0;
+        private Environment _environment = Environment.PRODUCTION;
 
         public long QueueTableSlno
         {
             get
             {
-                return this.queueTableSlno;
+                return this._queueTableSlno;
             }
             set
             {
-                this.queueTableSlno = value;
+                this._queueTableSlno = value;
             }
         }
 
@@ -39,11 +40,11 @@ namespace VoiceController
         {
             get
             {
-                return this.mobileId;
+                return this._mobileId;
             }
             set
             {
-                this.mobileId = value;
+                this._mobileId = value;
             }
         }
 
@@ -51,11 +52,11 @@ namespace VoiceController
         {
             get
             {
-                return this.accountId;
+                return this._accountId;
             }
             set
             {
-                this.accountId = value;
+                this._accountId = value;
             }
         }
 
@@ -63,11 +64,11 @@ namespace VoiceController
         {
             get
             {
-                return this.uuid;
+                return this._uuid;
             }
             set
             {
-                this.uuid = value;
+                this._uuid = value;
             }
         }
 
@@ -75,11 +76,11 @@ namespace VoiceController
         {
             get
             {
-                return this.callerId;
+                return this._callerId;
             }
             set
             {
-                this.callerId = value;
+                this._callerId = value;
             }
         }
 
@@ -87,11 +88,11 @@ namespace VoiceController
         {
             get
             {
-                return this.destination;
+                return this._destination;
             }
             set
             {
-                this.destination = value;
+                this._destination = value;
             }
         }
 
@@ -99,11 +100,11 @@ namespace VoiceController
         {
             get
             {
-                return this.xml;
+                return this._xml;
             }
             set
             {
-                this.xml = value;
+                this._xml = value;
             }
         }
 
@@ -111,11 +112,11 @@ namespace VoiceController
         {
             get
             {
-                return this.ringUrl;
+                return this._ringUrl;
             }
             set
             {
-                this.ringUrl = value;
+                this._ringUrl = value;
             }
         }
 
@@ -123,11 +124,11 @@ namespace VoiceController
         {
             get
             {
-                return this.answerUrl;
+                return this._answerUrl;
             }
             set
             {
-                this.answerUrl = value;
+                this._answerUrl = value;
             }
         }
 
@@ -135,11 +136,11 @@ namespace VoiceController
         {
             get
             {
-                return this.hangupUrl;
+                return this._hangupUrl;
             }
             set
             {
-                this.hangupUrl = value;
+                this._hangupUrl = value;
             }
         }
 
@@ -147,11 +148,11 @@ namespace VoiceController
         {
             get
             {
-                return this.pulse;
+                return this._pulse;
             }
             set
             {
-                this.pulse = value;
+                this._pulse = value;
             }
         }
 
@@ -159,11 +160,11 @@ namespace VoiceController
         {
             get
             {
-                return this.pricePerPulse;
+                return this._pricePerPulse;
             }
             set
             {
-                this.pricePerPulse = value;
+                this._pricePerPulse = value;
             }
         }
 
@@ -171,17 +172,22 @@ namespace VoiceController
         {
             get
             {
-                return this.priorityValue;
+                return this._priorityValue;
             }
             set
             {
-                this.priorityValue = value;
+                this._priorityValue = value;
             }
+        }
+        public Environment Environment
+        {
+            get { return this._environment; }
+            set { this._environment = value; }
         }
 
         public string PrintMe()
         {
-            return " QueueTableSlno : " + this.QueueTableSlno.ToString() + ", MobileId : " + this.CallId.ToString() + ", Destination : " + this.Destination + ", CallerId : " + this.CallerId;
+            return " QueueTableSlno : " + this.QueueTableSlno.ToString() + ", Environment : " + this._environment.ToString() + ", MobileId : " + this.CallId.ToString() + ", Destination : " + this.Destination + ", CallerId : " + this.CallerId;
         }
     }
 }

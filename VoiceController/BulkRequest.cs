@@ -8,37 +8,43 @@ namespace VoiceController
 {
     public class BulkRequest
     {
-        private long id = 0L;
-        private string xml = "";
-        private string ip = "";
-        private StringBuilder destinations = null;
-        private StringBuilder uuids = null;
-        private string ringUrl = "";
-        private string answerUrl = "";
-        private string hangupUrl = "";
-        private byte retries = 0;
-        private string callerId = "";
-        private byte status = 0;
-        private int processedCount = 0;
-        private int totalCount = 0;
-        private long voiceRequestId = 0L;
-        private byte toolId = 0;
+        private long _id = 0;
+        private string _xml = string.Empty;
+        private string _ip = string.Empty;
+        private StringBuilder _destinations = null;
+        private StringBuilder _uuids = null;
+        private string _ringUrl = "";
+        private string _answerUrl = "";
+        private string _hangupUrl = "";
+        private byte _retries = 0;
+        private string _callerId = "";
+        private byte _status = 0;
+        private int _processedCount = 0;
+        private int _totalCount = 0;
+        private long _voiceRequestId = 0L;
+        private byte _toolId = 0;
+        private Environment _environment = Environment.PRODUCTION;
 
-        public long Id { get { return this.id; } set { this.id = value; } } 
-        public string Xml { get { return this.xml; } set { this.xml = value; } } 
-        public string Ip { get { return this.ip; } set { this.ip = value; } } 
-        public StringBuilder Destinations { get { if (this.destinations == null) this.destinations = new StringBuilder(); return this.destinations; } set { this.destinations = value; } } 
-        public StringBuilder UUIDs { get { if (this.uuids == null) this.uuids = new StringBuilder(); return this.uuids; } set { this.uuids = value; } } 
-        public string RingUrl { get { return this.ringUrl; } set { this.ringUrl = value; } } 
-        public string AnswerUrl { get { return this.answerUrl; } set { this.answerUrl = value; } } 
-        public string HangupUrl { get { return this.hangupUrl; } set { this.hangupUrl = value; } } 
-        public byte Retries { get { return this.retries; } set { this.retries = value; } } 
-        public string CallerId { get { return this.callerId; } set { this.callerId = value; } } 
-        public byte Status { get { return this.status; } set { this.status = value; } }
-        public int ProcessedCount { get { return this.processedCount; } set { this.processedCount = value; } } 
-        public long VoiceRequestId { get { return this.voiceRequestId; } set { this.voiceRequestId = value; } }
-        public byte ToolId { get { return this.toolId; } set { this.toolId = value; } }
-        public int TotalCount { get { return this.totalCount; } set { this.totalCount = value; } }
+        public long Id { get { return this._id; } set { this._id = value; } } 
+        public string Xml { get { return this._xml; } set { this._xml = value; } } 
+        public string Ip { get { return this._ip; } set { this._ip = value; } } 
+        public StringBuilder Destinations { get { if (this._destinations == null) this._destinations = new StringBuilder(); return this._destinations; } set { this._destinations = value; } } 
+        public StringBuilder UUIDs { get { if (this._uuids == null) this._uuids = new StringBuilder(); return this._uuids; } set { this._uuids = value; } } 
+        public string RingUrl { get { return this._ringUrl; } set { this._ringUrl = value; } } 
+        public string AnswerUrl { get { return this._answerUrl; } set { this._answerUrl = value; } } 
+        public string HangupUrl { get { return this._hangupUrl; } set { this._hangupUrl = value; } } 
+        public byte Retries { get { return this._retries; } set { this._retries = value; } } 
+        public string CallerId { get { return this._callerId; } set { this._callerId = value; } } 
+        public byte Status { get { return this._status; } set { this._status = value; } }
+        public int ProcessedCount { get { return this._processedCount; } set { this._processedCount = value; } } 
+        public long VoiceRequestId { get { return this._voiceRequestId; } set { this._voiceRequestId = value; } }
+        public byte ToolId { get { return this._toolId; } set { this._toolId = value; } }
+        public int TotalCount { get { return this._totalCount; } set { this._totalCount = value; } }
+        public Environment Environment
+        {
+            get { return this._environment; }
+            set { this._environment = value; }
+        }
         public string DisplayString()
         {
             return " Id : " + this.Id.ToString() + ", RingUrl : " + this.RingUrl + ", AnswerUrl : " + this.AnswerUrl + ", HangupUrl : " + this.HangupUrl + ", CallerId : " + this.CallerId + ", Status : " + this.Status.ToString() + ", ProcessedCount : " + this.ProcessedCount.ToString() + ", VoiceRequestId : " + this.VoiceRequestId.ToString();
@@ -49,8 +55,8 @@ namespace VoiceController
             try
             {
                 //SharedClass.Logger.Info("BulkRequestId : " + this.id.ToString() + ", Processed : " + this.processedCount.ToString() + ", Remaining : " + (this.))
-                sqlCon = new System.Data.SqlClient.SqlConnection(SharedClass.ConnectionString);
-                sqlCmd = new System.Data.SqlClient.SqlCommand("Update BulkVoiceRequests with(rowlock) Set ProcessedCount = " + this.processedCount.ToString() + " Where Id = " + this.id.ToString(), sqlCon);
+                sqlCon = new System.Data.SqlClient.SqlConnection(SharedClass.GetConnectionString(this._environment));
+                sqlCmd = new System.Data.SqlClient.SqlCommand("Update BulkVoiceRequests with(rowlock) Set ProcessedCount = " + this._processedCount.ToString() + " Where Id = " + this._id.ToString(), sqlCon);
                 sqlCon.Open();
                 sqlCmd.ExecuteNonQuery();
                 sqlCon.Close();
@@ -66,12 +72,12 @@ namespace VoiceController
             {
                 if (reason.Length > 500)
                     reason = reason.Substring(0, 500);
-                sqlCon = new System.Data.SqlClient.SqlConnection(SharedClass.ConnectionString);
+                sqlCon = new System.Data.SqlClient.SqlConnection(SharedClass.GetConnectionString(this._environment));
                 sqlCmd = new System.Data.SqlClient.SqlCommand("Update BulkVoiceRequests with(rowlock) Set Status = @Status, Reason = @Reason Where Id = @BulkRequestId", sqlCon);
                 // + ((isDeQueued == true) ? 9 : 0).ToString() + " Where Id = " + this.id.ToString(), sqlCon);
                 sqlCmd.Parameters.Add("@Status", System.Data.SqlDbType.TinyInt).Value = isDeQueued == true ? 9 : 0;
                 sqlCmd.Parameters.Add("@Reason", System.Data.SqlDbType.VarChar, 500).Value = reason;
-                sqlCmd.Parameters.Add("@BulkRequestId", System.Data.SqlDbType.BigInt).Value = this.id;
+                sqlCmd.Parameters.Add("@BulkRequestId", System.Data.SqlDbType.BigInt).Value = this._id;
                 sqlCon.Open();
                 sqlCmd.ExecuteNonQuery();
                 sqlCon.Close();

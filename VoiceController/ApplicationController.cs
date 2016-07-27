@@ -13,8 +13,8 @@ namespace VoiceController
 {
     internal class ApplicationController
     {
-        private bool isIamPolling = false;
-        private Thread pollThread = null;
+        private Thread _pollThread = null;
+        private Thread _pollThreadStaging = null;
 
         public ApplicationController()
         {
@@ -37,11 +37,17 @@ namespace VoiceController
             {
                 SharedClass.Logger.Info("Starting Listener");
                 SharedClass.Listener.Initialize();
-            } 
-            this.pollThread = new Thread(new ThreadStart(this.StartDbPoll));
-            this.pollThread.Name = "BulkPoller";
+            }
+            this._pollThread = new Thread(new ParameterizedThreadStart(this.StartDbPoll));
+            this._pollThread.Name = "BulkPoller";
             SharedClass.Logger.Info("Starting BulkPoller");
-            this.pollThread.Start();
+            this._pollThread.Start(Environment.PRODUCTION);
+            if (SharedClass.PollStaging)
+            {
+                this._pollThreadStaging = new Thread(new ParameterizedThreadStart(this.StartDbPoll));
+                this._pollThreadStaging.Name = "BulkPollerStaging";
+                this._pollThreadStaging.Start(Environment.STAGING);
+            }
         }
 
         public void Stop()
@@ -105,21 +111,21 @@ namespace VoiceController
                 SharedClass.Logger.Info("Stopping Listener");
                 SharedClass.Listener.Destroy();
             }
-            while (this.isIamPolling)
+            while (this._isIamPolling)
             {
-                SharedClass.Logger.Info("DbPoller Is Still Running, Thread State : " + this.pollThread.ThreadState.ToString());
-                if (this.pollThread.ThreadState == ThreadState.WaitSleepJoin)
-                    this.pollThread.Interrupt();
+                SharedClass.Logger.Info("DbPoller Is Still Running, Thread State : " + this._pollThread.ThreadState.ToString());
+                if (this._pollThread.ThreadState == ThreadState.WaitSleepJoin)
+                    this._pollThread.Interrupt();
                 Thread.Sleep(100);
             }
             SharedClass.IsServiceCleaned = true;
         }
 
-        public void StartDbPoll()
+        public void StartDbPoll(object input)
         {
-            long lastRequestId = 0;
+            Environment environment = (Environment)input;            
             SharedClass.Logger.Info("Started");
-            SqlCommand sqlCommand = new SqlCommand("VC_Get_PendingBulkVoiceRequests", new SqlConnection(SharedClass.ConnectionString));
+            SqlCommand sqlCommand = new SqlCommand("VC_Get_PendingBulkVoiceRequests", new SqlConnection(SharedClass.GetConnectionString(environment)));
             sqlCommand.CommandType = CommandType.StoredProcedure;
             SqlDataAdapter sqlDataAdapter = null;
             DataSet dataSet = null;
@@ -127,9 +133,8 @@ namespace VoiceController
             {
                 try
                 {
-                    this.isIamPolling = true;
                     sqlCommand.Parameters.Clear();
-                    sqlCommand.Parameters.Add("@LastRequestId", SqlDbType.BigInt).Value = lastRequestId;
+                    sqlCommand.Parameters.Add("@LastRequestId", SqlDbType.BigInt).Value = BulkRequestId.GetLastId(environment);
                     sqlDataAdapter = new SqlDataAdapter();
                     sqlDataAdapter.SelectCommand = sqlCommand;
                     dataSet = new DataSet();
@@ -142,6 +147,7 @@ namespace VoiceController
                             try
                             {
                                 bulkRequest = new BulkRequest();
+                                bulkRequest.Environment = environment;
                                 bulkRequest.Id = Convert.ToInt64(dataRow["Id"].ToString());
                                 bulkRequest.Xml = dataRow["Xml"].ToString();
                                 bulkRequest.Ip = dataRow["Ip"].ToString();
@@ -173,6 +179,7 @@ namespace VoiceController
                                     }
                                     accountProcessor.EnQueue(bulkRequest);
                                 }
+                                BulkRequestId.SetLastId(bulkRequest.Id, environment);
                             }
                             catch (Exception ex1)
                             {
@@ -224,8 +231,7 @@ namespace VoiceController
                     }
                     sqlDataAdapter = null;
                     dataSet = null;
-                }
-                this.isIamPolling = false;
+                }                
                 try
                 {
                     Thread.Sleep(5000);
@@ -247,7 +253,7 @@ namespace VoiceController
             SqlCommand sqlCommand = (SqlCommand)null;
             try
             {
-                sqlCommand = new SqlCommand("Get_VoiceGateways", new SqlConnection(SharedClass.ConnectionString));
+                sqlCommand = new SqlCommand("Get_VoiceGateways", new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION)));
                 sqlCommand.CommandType = CommandType.StoredProcedure;
                 SqlDataAdapter sqlDataAdapter = new SqlDataAdapter();
                 DataSet dataSet = new DataSet();
@@ -302,15 +308,17 @@ namespace VoiceController
 
         private void LoadConfig()
         {
-            SharedClass.ConnectionString = ConfigurationManager.ConnectionStrings["DbConnectionString"].ConnectionString;
-            if (ConfigurationManager.AppSettings["GatewayHeartBeatSpan"] == null)
+            SharedClass.SetConnectionString(ConfigurationManager.ConnectionStrings["DbConnectionString"].ConnectionString, Environment.PRODUCTION);
+            if(ConfigurationManager.ConnectionStrings.["DbConnectionStringStaging"] != null)
             {
+                SharedClass.SetConnectionString(ConfigurationManager.ConnectionStrings["DbConnectionStringStaging"].ConnectionString, Environment.STAGING);
+                SharedClass.PollStaging = true;
+            }
+            SharedClass.SetConnectionString(ConfigurationManager.ConnectionStrings["DbConnectionStringStaging"].ConnectionString, Environment.STAGING);
+            if (ConfigurationManager.AppSettings["GatewayHeartBeatSpan"] == null)            
                 SharedClass.GatewayHeartBeatSpan = 60;
-            }
             else
-            {
                 SharedClass.GatewayHeartBeatSpan = (int)Convert.ToInt16(ConfigurationManager.AppSettings["GatewayHeartBeatSpan"].ToString());
-            }
             if (ConfigurationManager.AppSettings["HP"] == null)
             {
                 Priority.HpFloor = 1;

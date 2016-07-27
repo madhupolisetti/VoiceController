@@ -15,15 +15,15 @@ namespace VoiceController
 {
     public class RabbitMQClient
     {
-        private string host = null;
-        private int port = 0;
-        private string user = null;
-        private string password = null;
-        private bool isConnected = false;
-        private bool isConnectSignalInProgress = false;
-        private Thread connectThread = null;
-        private Thread hangupDeQueueThread = null;
-        private Thread callFlowsDeQueueThread = null;
+        private string _host = string.Empty;
+        private int _port = 0;
+        private string _user = string.Empty;
+        private string _password = string.Empty;
+        private bool _isConnected = false;
+        private bool _isConnectSignalInProgress = false;
+        private Thread _connectThread = null;
+        private Thread _hangupDeQueueThread = null;
+        private Thread _callFlowsDeQueueThread = null;
         public ConnectionFactory connectionFactory = null;
         public IConnection connection = null;
         public IModel channel = null;
@@ -37,39 +37,43 @@ namespace VoiceController
         
         #region CALLFLOW_VARIABLES
         
-        private JObject callFlowObject = null;
-        private SqlConnection callFlowsSqlConnection = null;
-        private SqlCommand callFlowsSqlCommand = null;
-        private JObject paramObject = null;
-        private string[] paramArray = null;
-        private Dictionary<string, object> paramPairs = null;
-        private long callId = 0;
-        private string eventName = string.Empty;
-        private long ringTimeStamp = 0;
-        private long answerTimeStamp = 0;
-        private long endTimeStamp = 0;
-        private byte retryAttempt = 0;
-        private string caller = string.Empty;
-        private string callee = string.Empty;
-        private string recordingUrl = string.Empty;
-        private string digits = string.Empty;
-        private string endBy = string.Empty;
-        private string callStatus = string.Empty;
+        private JObject _callFlowObject = null;
+        private SqlConnection _callFlowsSqlConnection = null;
+        private SqlConnection _callFlowsSqlConnectionStaging = null;
+        private SqlCommand _callFlowsSqlCommandStaging = null;
+        private SqlCommand _callFlowsSqlCommand = null;
+        private JObject _paramObject = null;
+        private string[] _paramArray = null;
+        private Dictionary<string, object> _paramPairs = null;
+        private long _callId = 0;
+        private string _eventName = string.Empty;
+        private long _ringTimeStamp = 0;
+        private long _answerTimeStamp = 0;
+        private long _endTimeStamp = 0;
+        private byte _retryAttempt = 0;
+        private string _caller = string.Empty;
+        private string _callee = string.Empty;
+        private string _recordingUrl = string.Empty;
+        private string _digits = string.Empty;
+        private string _endBy = string.Empty;
+        private string _callStatus = string.Empty;
         
         #endregion
         public void Start()
         {
-            callFlowsSqlConnection = new SqlConnection(SharedClass.ConnectionString);
-            callFlowsSqlCommand = new SqlCommand("VC_Create_CallFlow", callFlowsSqlConnection);
-            this.connectThread = new Thread(new ThreadStart(this.ConnectToServer));
-            this.connectThread.Name = "RMQConnector";
-            this.connectThread.Start();
-            this.hangupDeQueueThread = new Thread(new ThreadStart(this.DeQueueHangups));
-            this.hangupDeQueueThread.Name = "HangupListener";
-            this.hangupDeQueueThread.Start();
-            this.callFlowsDeQueueThread = new Thread(new ThreadStart(this.DeQueueCallFlows));
-            this.callFlowsDeQueueThread.Name = "CallFlows";
-            this.callFlowsDeQueueThread.Start();
+            _callFlowsSqlConnection = new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION));
+            _callFlowsSqlConnectionStaging = new SqlConnection(SharedClass.GetConnectionString(Environment.STAGING));
+            _callFlowsSqlCommand = new SqlCommand("VC_Create_CallFlow", _callFlowsSqlConnection);
+            _callFlowsSqlCommandStaging = new SqlCommand("VC_Create_CallFlow", _callFlowsSqlConnectionStaging);
+            this._connectThread = new Thread(new ThreadStart(this.ConnectToServer));
+            this._connectThread.Name = "RMQConnector";
+            this._connectThread.Start();
+            this._hangupDeQueueThread = new Thread(new ThreadStart(this.DeQueueHangups));
+            this._hangupDeQueueThread.Name = "HangupListener";
+            this._hangupDeQueueThread.Start();
+            this._callFlowsDeQueueThread = new Thread(new ThreadStart(this.DeQueueCallFlows));
+            this._callFlowsDeQueueThread.Name = "CallFlows";
+            this._callFlowsDeQueueThread.Start();
         }
 
         public void Stop()
@@ -90,10 +94,10 @@ namespace VoiceController
                 this.hangupConsumer = null;
                 this.hangupLazyConsumer = null;
                 this.callFlowsConsumer = null;
-                if (this.hangupDeQueueThread.ThreadState == ThreadState.WaitSleepJoin)
-                    this.hangupDeQueueThread.Interrupt();
-                if (this.callFlowsDeQueueThread.ThreadState == ThreadState.WaitSleepJoin)
-                    this.callFlowsDeQueueThread.Interrupt();                    
+                if (this._hangupDeQueueThread.ThreadState == ThreadState.WaitSleepJoin)
+                    this._hangupDeQueueThread.Interrupt();
+                if (this._callFlowsDeQueueThread.ThreadState == ThreadState.WaitSleepJoin)
+                    this._callFlowsDeQueueThread.Interrupt();                    
             }
             catch (Exception ex)
             {
@@ -108,24 +112,24 @@ namespace VoiceController
         public void ConnectToServer()
         {
             int millisecondsTimeout = 3000;
-            if (this.isConnectSignalInProgress)
+            if (this._isConnectSignalInProgress)
             {
                 SharedClass.Logger.Info("A connect signal already in progress. Termination connect signal");
             }
             else
             {
-                this.isConnectSignalInProgress = true;
-                this.isConnected = false;
-                SharedClass.Logger.Info("Initializing RabbitMQ Connection, Host " + this.host + ", Port : " + this.port.ToString() + ", User : " + this.user + ", Password : " + this.password);
+                this._isConnectSignalInProgress = true;
+                this._isConnected = false;
+                SharedClass.Logger.Info("Initializing RabbitMQ Connection, Host " + this._host + ", Port : " + this._port.ToString() + ", User : " + this._user + ", Password : " + this._password);
                 while (!SharedClass.HasStopSignal)
                 {
                     try
                     {
                         this.connectionFactory = new ConnectionFactory();
-                        this.connectionFactory.HostName = this.host;
-                        this.connectionFactory.Port = this.port;
-                        this.connectionFactory.UserName = this.user;
-                        this.connectionFactory.Password = this.password;
+                        this.connectionFactory.HostName = this._host;
+                        this.connectionFactory.Port = this._port;
+                        this.connectionFactory.UserName = this._user;
+                        this.connectionFactory.Password = this._password;
                         this.connection = this.connectionFactory.CreateConnection();
                         this.channel = this.connection.CreateModel();
                         this.channel.QueueDeclare("Hangups", true, false, false, null);
@@ -147,8 +151,8 @@ namespace VoiceController
                             SharedClass.Logger.Info("HangupLazzy Queue Consumer Created, ConsumerTag : " + this.hangupLazyConsumerTag);
                         }
                         SharedClass.Logger.Info("Connected To RabbitMQ Succesfully");
-                        this.isConnected = true;
-                        this.isConnectSignalInProgress = false;
+                        this._isConnected = true;
+                        this._isConnectSignalInProgress = false;
                         break;
                     }
                     catch (Exception ex1)
@@ -175,7 +179,7 @@ namespace VoiceController
 
         public void DeQueueHangups()
         {
-            while (!this.isConnected && !SharedClass.HasStopSignal)
+            while (!this._isConnected && !SharedClass.HasStopSignal)
             {
                 SharedClass.Logger.Info("Waiting for a connect signal");
                 Thread.Sleep(5000);
@@ -237,7 +241,7 @@ namespace VoiceController
                             if (!SharedClass.HasStopSignal)
                             {
                                 this.ConnectToServer();
-                                while (!this.isConnected && !SharedClass.HasStopSignal)
+                                while (!this._isConnected && !SharedClass.HasStopSignal)
                                 {
                                     try
                                     {
@@ -374,47 +378,47 @@ namespace VoiceController
         {
             try
             {
-                callFlowObject = null;
-                callFlowObject = JObject.Parse(callData);
+                _callFlowObject = null;
+                _callFlowObject = JObject.Parse(callData);
             }
             catch (Exception e)
             {
                 SharedClass.Logger.Error("Exception whil processing CallFlow (Message Parsing Failed) : " + callData + ", Reason : " + e.ToString());
             }
-            if (callFlowObject != null)
+            if (_callFlowObject != null)
             {   
-                eventName = callFlowObject.SelectToken("event").ToString();
-                if (eventName.Equals(SharedClass.POST, StringComparison.CurrentCultureIgnoreCase))
+                _eventName = _callFlowObject.SelectToken("event").ToString();
+                if (_eventName.Equals(SharedClass.POST, StringComparison.CurrentCultureIgnoreCase))
                 {
-                    paramObject = JObject.Parse(callFlowObject.SelectToken("parameters").ToString());
+                    _paramObject = JObject.Parse(_callFlowObject.SelectToken("parameters").ToString());
                 }
                 try
                 {
-                    callFlowsSqlCommand.Parameters.Clear();
-                    callFlowsSqlCommand.Parameters.Add("@CallId", SqlDbType.BigInt).Value = Convert.ToInt64(callFlowObject.SelectToken("sequencenumber").ToString());
-                    callFlowsSqlCommand.Parameters.Add("@Event", SqlDbType.VarChar, 10).Value = callFlowObject.SelectToken("event").ToString();
-                    callFlowsSqlCommand.Parameters.Add("@RingTimeStamp", SqlDbType.BigInt).Value = callFlowObject.SelectToken("ringtime") == null ? 0 : Convert.ToInt64(callFlowObject.SelectToken("ringtime").ToString());                    
-                    callFlowsSqlCommand.Parameters.Add("@AnswerTimeStamp", SqlDbType.BigInt).Value = callFlowObject.SelectToken("starttime") == null ? 0 : Convert.ToInt64(callFlowObject.SelectToken("starttime").ToString());
-                    callFlowsSqlCommand.Parameters.Add("@EndTimeStamp", SqlDbType.BigInt).Value = callFlowObject.SelectToken("endtime") == null ? 0 : Convert.ToInt64(callFlowObject.SelectToken("endtime").ToString());
-                    callFlowsSqlCommand.Parameters.Add("@EndBy", SqlDbType.VarChar, 20).Value = callFlowObject.SelectToken("hangupdisposition") == null ? "" : callFlowObject.SelectToken("hangupdisposition").ToString();
-                    callFlowsSqlCommand.Parameters.Add("@Caller", SqlDbType.VarChar, 20).Value = callFlowObject.SelectToken("caller") == null ? "" : callFlowObject.SelectToken("caller").ToString();
-                    callFlowsSqlCommand.Parameters.Add("@Callee", SqlDbType.VarChar, 20).Value = callFlowObject.SelectToken("callee") == null ? "" : callFlowObject.SelectToken("callee").ToString();
-                    callFlowsSqlCommand.Parameters.Add("@Digits", SqlDbType.VarChar, 20).Value = callFlowObject.SelectToken("digits") == null ? "" : callFlowObject.SelectToken("digits").ToString();
-                    callFlowsSqlCommand.Parameters.Add("@RecordingUrl", SqlDbType.VarChar, 200).Value = callFlowObject.SelectToken("recordurl") == null ? "" : callFlowObject.SelectToken("recordurl").ToString();
-                    callFlowsSqlCommand.Parameters.Add("@CallStatus", SqlDbType.VarChar, 20).Value = callFlowObject.SelectToken("callstatus").ToString();
-                    callFlowsSqlCommand.Parameters.Add("@PostingUrl", SqlDbType.VarChar, 200).Value = callFlowObject.SelectToken("postingurl").ToString();
-                    callFlowsSqlCommand.Parameters.Add("@PostingData", SqlDbType.VarChar, -1);
-                    callFlowsSqlCommand.Parameters.Add("@HttpMethod", SqlDbType.TinyInt);
-                    callFlowsSqlCommand.Parameters.Add("@ResponseData", SqlDbType.VarChar, -1);
-                    callFlowsSqlCommand.Parameters.Add("@TimeTaken", SqlDbType.Int);
-                    callFlowsSqlCommand.Parameters.Add("@StatusCode", SqlDbType.Int);
-                    callFlowsSqlCommand.Parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
-                    callFlowsSqlCommand.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
-                    if (callFlowsSqlConnection.State != ConnectionState.Open)
-                        callFlowsSqlConnection.Open();
-                    callFlowsSqlCommand.ExecuteNonQuery();
-                    if(!Convert.ToBoolean(callFlowsSqlCommand.Parameters["@Success"].Value))
-                        SharedClass.Logger.Error("Exception whil processing CallFlow (False From DB) : " + callData + ", Reason : " + callFlowsSqlCommand.Parameters["@Message"].Value);
+                    _callFlowsSqlCommand.Parameters.Clear();
+                    _callFlowsSqlCommand.Parameters.Add("@CallId", SqlDbType.BigInt).Value = Convert.ToInt64(_callFlowObject.SelectToken("sequencenumber").ToString());
+                    _callFlowsSqlCommand.Parameters.Add("@Event", SqlDbType.VarChar, 10).Value = _callFlowObject.SelectToken("event").ToString();
+                    _callFlowsSqlCommand.Parameters.Add("@RingTimeStamp", SqlDbType.BigInt).Value = _callFlowObject.SelectToken("ringtime") == null ? 0 : Convert.ToInt64(_callFlowObject.SelectToken("ringtime").ToString());                    
+                    _callFlowsSqlCommand.Parameters.Add("@AnswerTimeStamp", SqlDbType.BigInt).Value = _callFlowObject.SelectToken("starttime") == null ? 0 : Convert.ToInt64(_callFlowObject.SelectToken("starttime").ToString());
+                    _callFlowsSqlCommand.Parameters.Add("@EndTimeStamp", SqlDbType.BigInt).Value = _callFlowObject.SelectToken("endtime") == null ? 0 : Convert.ToInt64(_callFlowObject.SelectToken("endtime").ToString());
+                    _callFlowsSqlCommand.Parameters.Add("@EndBy", SqlDbType.VarChar, 20).Value = _callFlowObject.SelectToken("hangupdisposition") == null ? "" : _callFlowObject.SelectToken("hangupdisposition").ToString();
+                    _callFlowsSqlCommand.Parameters.Add("@Caller", SqlDbType.VarChar, 20).Value = _callFlowObject.SelectToken("caller") == null ? "" : _callFlowObject.SelectToken("caller").ToString();
+                    _callFlowsSqlCommand.Parameters.Add("@Callee", SqlDbType.VarChar, 20).Value = _callFlowObject.SelectToken("callee") == null ? "" : _callFlowObject.SelectToken("callee").ToString();
+                    _callFlowsSqlCommand.Parameters.Add("@Digits", SqlDbType.VarChar, 20).Value = _callFlowObject.SelectToken("digits") == null ? "" : _callFlowObject.SelectToken("digits").ToString();
+                    _callFlowsSqlCommand.Parameters.Add("@RecordingUrl", SqlDbType.VarChar, 200).Value = _callFlowObject.SelectToken("recordurl") == null ? "" : _callFlowObject.SelectToken("recordurl").ToString();
+                    _callFlowsSqlCommand.Parameters.Add("@CallStatus", SqlDbType.VarChar, 20).Value = _callFlowObject.SelectToken("callstatus").ToString();
+                    _callFlowsSqlCommand.Parameters.Add("@PostingUrl", SqlDbType.VarChar, 200).Value = _callFlowObject.SelectToken("postingurl").ToString();
+                    _callFlowsSqlCommand.Parameters.Add("@PostingData", SqlDbType.VarChar, -1);
+                    _callFlowsSqlCommand.Parameters.Add("@HttpMethod", SqlDbType.TinyInt);
+                    _callFlowsSqlCommand.Parameters.Add("@ResponseData", SqlDbType.VarChar, -1);
+                    _callFlowsSqlCommand.Parameters.Add("@TimeTaken", SqlDbType.Int);
+                    _callFlowsSqlCommand.Parameters.Add("@StatusCode", SqlDbType.Int);
+                    _callFlowsSqlCommand.Parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
+                    _callFlowsSqlCommand.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+                    if (_callFlowsSqlConnection.State != ConnectionState.Open)
+                        _callFlowsSqlConnection.Open();
+                    _callFlowsSqlCommand.ExecuteNonQuery();
+                    if(!Convert.ToBoolean(_callFlowsSqlCommand.Parameters["@Success"].Value))
+                        SharedClass.Logger.Error("Exception whil processing CallFlow (False From DB) : " + callData + ", Reason : " + _callFlowsSqlCommand.Parameters["@Message"].Value);
                 }
                 catch (Exception e)
                 {
@@ -435,17 +439,17 @@ namespace VoiceController
                 SharedClass.Logger.Error(ex.ToString());
                 if (!this.connection.IsOpen)
                     this.ConnectToServer();
-                while (!this.isConnected && !SharedClass.HasStopSignal)
+                while (!this._isConnected && !SharedClass.HasStopSignal)
                     Thread.Sleep(5000);
                 if (!SharedClass.HasStopSignal)
                     goto retryLabel;
             }
         }
-        public string Host { get { return this.host; } set { this.host = value; } }
-        public int Port { get { return this.port; } set { this.port = value; } }
-        public string User { get { return this.user; } set { this.user = value; } }
-        public string Password { get { return this.password; } set { this.password = value; } }
-        public bool IsConnected { get { return this.isConnected; } set { this.isConnected = value; } }
-        public bool IsConnectSignalInProgress { get { return this.isConnectSignalInProgress; } set { this.isConnectSignalInProgress = value; } } 
+        public string Host { get { return this._host; } set { this._host = value; } }
+        public int Port { get { return this._port; } set { this._port = value; } }
+        public string User { get { return this._user; } set { this._user = value; } }
+        public string Password { get { return this._password; } set { this._password = value; } }
+        public bool IsConnected { get { return this._isConnected; } set { this._isConnected = value; } }
+        public bool IsConnectSignalInProgress { get { return this._isConnectSignalInProgress; } set { this._isConnectSignalInProgress = value; } } 
     }
 }
