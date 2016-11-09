@@ -133,7 +133,7 @@ namespace VoiceController
 
         private JObject ProcessChunk(BulkRequest bulkRequest, System.Data.DataTable mobileUUIDsTable) {
             SqlConnection sqlCon = new SqlConnection(SharedClass.GetConnectionString(bulkRequest.Environment));
-            SqlCommand sqlCmd = new SqlCommand("Create_Call");
+            SqlCommand sqlCmd = new SqlCommand("Create_Call",sqlCon);
             byte retryAttempt = 0;
             SqlParameter mobileUUIDParameter = null;
             SqlParameter xmlTagNamesParameter = null;
@@ -161,6 +161,7 @@ namespace VoiceController
                 sqlCmd.Parameters.Add("@CallerId", SqlDbType.VarChar, bulkRequest.CallerId.Length).Value = bulkRequest.CallerId;
                 sqlCmd.Parameters.Add("@Retries", SqlDbType.TinyInt).Value = bulkRequest.Retries;
                 sqlCmd.Parameters.Add("@BulkRequestId", SqlDbType.BigInt).Value = bulkRequest.Id;
+                sqlCmd.Parameters.Add("@CampaignScheduleId", SqlDbType.BigInt).Value = bulkRequest.CampaignScheduleId;
                 sqlCmd.Parameters.Add("@StatusCode", SqlDbType.Int).Direction = System.Data.ParameterDirection.Output;
                 sqlCmd.Parameters.Add("@Success", SqlDbType.Bit).Direction = System.Data.ParameterDirection.Output;
                 sqlCmd.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = System.Data.ParameterDirection.Output;

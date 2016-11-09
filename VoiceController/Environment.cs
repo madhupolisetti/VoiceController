@@ -9,6 +9,8 @@ namespace VoiceController
     public enum Environment
     {
         STAGING,
-        PRODUCTION
+        PRODUCTION,
+        STAGINGGROUPCALL,
+        PRODUCTIONGROUPCALL
     }
 }

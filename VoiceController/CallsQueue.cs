@@ -88,6 +88,7 @@ namespace VoiceController
                     }
                     break;
             }
+            SharedClass.Logger.Info("Enqueuing the call of Id : " + call.QueueTableSlno.ToString());
         }
 
         public Call DeQueue()
@@ -111,7 +112,11 @@ namespace VoiceController
                     }
                 }
                 else if (this.QueueCount(Priority.PriorityMode.Low) > 0) {
-                    call = this.lpQ.Dequeue();
+                    lock(this.lpQ)
+                    {
+                        call = this.lpQ.Dequeue();
+                    }
+                    
                 }
             }
             catch (Exception e) {

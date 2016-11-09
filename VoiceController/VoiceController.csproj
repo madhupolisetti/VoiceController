@@ -5,7 +5,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{9A7972A5-1B31-41CC-B2DC-3CF82811ACE4}</ProjectGuid>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>VoiceController</RootNamespace>
     <AssemblyName>VoiceController</AssemblyName>
@@ -73,6 +73,7 @@
     <Compile Include="HangupProcessor.cs" />
     <Compile Include="Label.cs" />
     <Compile Include="Listener.cs" />
+    <Compile Include="MyExtensions.cs" />
     <Compile Include="Notifier.cs" />
     <Compile Include="Priority.cs" />
     <Compile Include="ProjectInstaller.cs">

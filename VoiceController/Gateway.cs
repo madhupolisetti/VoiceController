@@ -84,30 +84,36 @@ namespace VoiceController
                 SharedClass.Logger.Error("Error DeSerializing Queue : " + e.ToString());
                 _callsQueue = new CallsQueue();
             }
-            this._upPollThread = new Thread(new ParameterizedThreadStart(this.GetPendingCallsFromDataBase));
+            ////For GroupCalls 
+            this._upPollThread = new Thread(new ParameterizedThreadStart(this.GetPendingGroupCallsFromDataBase));
+            this._upPollThread.Name = this._name + "_UP_Poller";
+            this._upPollThread.Start(new PollingInput(Priority.PriorityMode.Urgent, Environment.PRODUCTION));
+
+
+
+            
             this._hpPollThread = new Thread(new ParameterizedThreadStart(this.GetPendingCallsFromDataBase));
             this._mpPollThread = new Thread(new ParameterizedThreadStart(this.GetPendingCallsFromDataBase));
             this._lpPollThread = new Thread(new ParameterizedThreadStart(this.GetPendingCallsFromDataBase));
-            this._upPollThread.Name = this._name + "_UP_Poller";
             this._hpPollThread.Name = this._name + "_HP_Poller";
             this._mpPollThread.Name = this._name + "_MP_Poller";
             this._lpPollThread.Name = this._name + "_LP_Poller";
-            this._upPollThread.Start(new PollingInput(Priority.PriorityMode.Urgent, Environment.PRODUCTION));
             this._hpPollThread.Start(new PollingInput(Priority.PriorityMode.High, Environment.PRODUCTION));
             this._mpPollThread.Start(new PollingInput(Priority.PriorityMode.Medium, Environment.PRODUCTION));
             this._lpPollThread.Start(new PollingInput(Priority.PriorityMode.Low, Environment.PRODUCTION));
 
             if (SharedClass.PollStaging)
             {
-                this._upPollThreadStaging = new Thread(new ParameterizedThreadStart(this.GetPendingCallsFromDataBase));
+                this._upPollThreadStaging = new Thread(new ParameterizedThreadStart(this.GetPendingGroupCallsFromDataBase));
+                this._upPollThreadStaging.Name = this._name + "_UP_Poller_Staging";
+                this._upPollThreadStaging.Start(new PollingInput(Priority.PriorityMode.Urgent, Environment.STAGING));
+                
                 this._hpPollThreadStaging = new Thread(new ParameterizedThreadStart(this.GetPendingCallsFromDataBase));
                 this._mpPollThreadStaging = new Thread(new ParameterizedThreadStart(this.GetPendingCallsFromDataBase));
                 this._lpPollThreadStaging = new Thread(new ParameterizedThreadStart(this.GetPendingCallsFromDataBase));
-                this._upPollThreadStaging.Name = this._name + "_UP_Poller_Staging";
                 this._hpPollThreadStaging.Name = this._name + "_HP_Poller_Staging";
                 this._mpPollThreadStaging.Name = this._name + "_MP_Poller_Staging";
                 this._lpPollThreadStaging.Name = this._name + "_LP_Poller_Staging";
-                this._upPollThreadStaging.Start(new PollingInput(Priority.PriorityMode.Urgent, Environment.STAGING));
                 this._hpPollThreadStaging.Start(new PollingInput(Priority.PriorityMode.High, Environment.STAGING));
                 this._mpPollThreadStaging.Start(new PollingInput(Priority.PriorityMode.Medium, Environment.STAGING));
                 this._lpPollThreadStaging.Start(new PollingInput(Priority.PriorityMode.Low, Environment.STAGING));
@@ -150,6 +156,7 @@ namespace VoiceController
                 SharedClass.Logger.Info("Still " + this._pollThreadsRunning + " Pollers Running");
                 Thread.Sleep(2000);
             }
+            UpdateLastProcessedSlno();
             try
             {
                 SharedClass.Logger.Info("Serializing Queue. UpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.Urgent) + ", HpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.High) + ", MpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.Medium) + ", LpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.Low));
@@ -166,44 +173,87 @@ namespace VoiceController
                 SharedClass.GatewayMap.Remove(this._id);
             }
         }
-        private void UpdateLastSlno(Priority.PriorityMode mode, long slno)
+        //private void UpdateLastSlno(Priority.PriorityMode mode, long slno)
+        //{
+        //    switch (mode)
+        //    {
+        //        case Priority.PriorityMode.Urgent:
+        //            this._urgentPriorityQueueLastSlno = slno;
+        //            break;
+        //        case Priority.PriorityMode.High:
+        //            this.HighPriorityQueueLastSlno = slno;                    
+        //            break;
+        //        case Priority.PriorityMode.Medium:
+        //            this.MediumPriorityQueueLastSlno = slno;                    
+        //            break;
+        //        default:
+        //            this.LowPriorityQueueLastSlno = slno;                    
+        //            break;
+        //    }
+        //}
+        //private long GetLastSlno(Priority.PriorityMode mode)
+        //{
+        //    long num;
+        //    switch (mode)
+        //    {
+        //        case Priority.PriorityMode.Urgent:
+        //            num = this._urgentPriorityQueueLastSlno;
+        //            break;
+        //        case Priority.PriorityMode.High:
+        //            num = this._highPriorityQueueLastSlno;
+        //            break;
+        //        case Priority.PriorityMode.Medium:
+        //            num = this._mediumPriorityQueueLastSlno;
+        //            break;
+        //        default:
+        //            num = this._lowPriorityQueueLastSlno;
+        //            break;
+        //    }
+        //    return num;
+        //}
+
+        private void UpdateLastProcessedSlno()
         {
-            switch (mode)
+            SqlConnection sqlCon = (SqlConnection)null;
+            SqlCommand sqlCmd = (SqlCommand)null;
+            try
             {
-                case Priority.PriorityMode.Urgent:
-                    this._urgentPriorityQueueLastSlno = slno;
-                    break;
-                case Priority.PriorityMode.High:
-                    this.HighPriorityQueueLastSlno = slno;                    
-                    break;
-                case Priority.PriorityMode.Medium:
-                    this.MediumPriorityQueueLastSlno = slno;                    
-                    break;
-                default:
-                    this.LowPriorityQueueLastSlno = slno;                    
-                    break;
+                sqlCon = new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION));
+                sqlCmd = new SqlCommand("Update VoiceGateways With(Rowlock) Set HPQLastSlno = @HPQLastSlno, MPQLastSlno = @MPQLastSlno , LPQLastSlno = @LPQLastSlno Where ID = @GatewayId",sqlCon);
+                sqlCmd.Parameters.Add("@HPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.PRODUCTION, Priority.PriorityMode.High);
+                sqlCmd.Parameters.Add("@MPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.PRODUCTION, Priority.PriorityMode.Medium);
+                sqlCmd.Parameters.Add("@LPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.PRODUCTION, Priority.PriorityMode.Low);
+                sqlCmd.Parameters.Add("@GatewayId", SqlDbType.Int).Value = this.Id;
+                sqlCon.Open();
+                sqlCmd.ExecuteNonQuery();
+                sqlCon.Close();
+            }
+            catch(Exception ex)
+            {
+                SharedClass.Logger.Error("Exception in Updating Last Processed Slno's Reason : " + ex.ToString());
+            }
+
+            if(SharedClass.PollStaging)
+            {
+                try
+                {
+                    sqlCon = new SqlConnection(SharedClass.GetConnectionString(Environment.STAGING));
+                    sqlCmd = new SqlCommand("Update VoiceGateways With(Rowlock) Set HPQLastSlno = @HPQLastSlno, MPQLastSlno = @MPQLastSlno , LPQLastSlno = @LPQLastSlno Where ID = @GatewayId", sqlCon);
+                    sqlCmd.Parameters.Add("@HPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.STAGING, Priority.PriorityMode.High);
+                    sqlCmd.Parameters.Add("@MPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.STAGING, Priority.PriorityMode.Medium);
+                    sqlCmd.Parameters.Add("@LPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.STAGING, Priority.PriorityMode.Low);
+                    sqlCmd.Parameters.Add("@GatewayId", SqlDbType.Int).Value = this.Id;
+                    sqlCon.Open();
+                    sqlCmd.ExecuteNonQuery();
+                    sqlCon.Close();
+                }
+                catch (Exception ex)
+                {
+                    SharedClass.Logger.Error("Exception in Updating Last Processed Staging Slno's  Reason : " + ex.ToString());
+                }
             }
         }
-        private long GetLastSlno(Priority.PriorityMode mode)
-        {
-            long num;
-            switch (mode)
-            {
-                case Priority.PriorityMode.Urgent:
-                    num = this._urgentPriorityQueueLastSlno;
-                    break;
-                case Priority.PriorityMode.High:
-                    num = this._highPriorityQueueLastSlno;
-                    break;
-                case Priority.PriorityMode.Medium:
-                    num = this._mediumPriorityQueueLastSlno;
-                    break;
-                default:
-                    num = this._lowPriorityQueueLastSlno;
-                    break;
-            }
-            return num;
-        }
+
         private void GetPendingCallsFromDataBase(object input)
         {
             PollingInput pollingInput = (PollingInput)input;
@@ -215,6 +265,7 @@ namespace VoiceController
             Call call = null;
             byte floorValue = 0;
             byte ceilValue = 10;
+            //byte emptyCount = 0;
             switch (pollingInput.PriorityMode) { 
                 case Priority.PriorityMode.Urgent:
                     floorValue = 0;
@@ -264,6 +315,7 @@ namespace VoiceController
                                 call = new Call();
                                 call.Environment = pollingInput.Environment;
                                 call.QueueTableSlno = Convert.ToInt64(dataRow["Id"]);
+                                CallsQueueSlno.SetSlno(this.Id, pollingInput.Environment, pollingInput.PriorityMode, Convert.ToInt64(dataRow["Id"]));
                                 call.CallId = Convert.ToInt64(dataRow["CallId"]);
                                 call.AccountId = Convert.ToInt64(dataRow["AccountId"]);
                                 call.UUID = dataRow["UUID"].ToString();
@@ -306,12 +358,14 @@ namespace VoiceController
                         //this.UpdateLastSlno(priorityMode, call.QueueTableSlno);
                         CallsQueueSlno.SetSlno(this._id, pollingInput.Environment, pollingInput.PriorityMode, call.QueueTableSlno);
                     }
-                    else {
+                    else 
+                    {
                         try
                         {
                             Thread.Sleep(2000);
                         }
-                        catch (ThreadInterruptedException) { 
+                        catch (ThreadInterruptedException) 
+                        { 
 
                         }
                     }
@@ -354,6 +408,136 @@ namespace VoiceController
                 SharedClass.Notifier.SendSms(text);
             }
         }
+
+        private void GetPendingGroupCallsFromDataBase(object input)
+        {
+            PollingInput pollingInput = (PollingInput)input;
+            SqlConnection connection = new SqlConnection(SharedClass.GetConnectionString(pollingInput.Environment));
+            SqlCommand sqlCommand = new SqlCommand("VC_Get_PendingGroupCalls", connection);
+            sqlCommand.CommandType = CommandType.StoredProcedure;
+            SqlDataAdapter da = null;
+            DataSet ds = null;
+            Call call = null;
+            while (!this._pushThreadMutex.WaitOne())
+            {
+                Thread.Sleep(100);
+            }
+            ++this._pollThreadsRunning;
+            this._pushThreadMutex.ReleaseMutex();
+            SharedClass.Logger.Info("Started");
+
+            while (this._shouldIPoll && !SharedClass.HasStopSignal)
+            {
+                try
+                {
+                    sqlCommand.Parameters.Clear();
+                    sqlCommand.Parameters.Add("@GatewayId", SqlDbType.Int).Value = this._id;
+                    sqlCommand.Parameters.Add("@LastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this._id, pollingInput.Environment, pollingInput.PriorityMode); 
+                    if (connection.State != ConnectionState.Open)
+                        connection.Open();
+                    da = new SqlDataAdapter();
+                    da.SelectCommand = sqlCommand;
+                    ds = new DataSet();
+                    da.Fill(ds);
+                    if (ds.Tables.Count > 0 && ds.Tables[0].Rows.Count > 0)
+                    {
+                        foreach (DataRow dataRow in ds.Tables[0].Rows)
+                        {
+                            try
+                            {
+                                call = new Call();
+                                call.Environment = pollingInput.Environment;
+                                call.QueueTableSlno = Convert.ToInt64(dataRow["Id"]);
+                                CallsQueueSlno.SetSlno(this.Id, pollingInput.Environment, pollingInput.PriorityMode, Convert.ToInt64(dataRow["Id"]));
+                                call.CallId = Convert.ToInt64(dataRow["CallId"]);
+                                call.AccountId = Convert.ToInt64(dataRow["AccountId"]);
+                                call.UUID = dataRow["UUID"].ToString();
+                                call.CallerId = dataRow["CallerId"].ToString();
+                                call.Destination = dataRow["Destination"].ToString();
+                                call.Xml = dataRow["Xml"].ToString();
+                                call.RingUrl = dataRow["RingUrl"].ToString();
+                                call.AnswerUrl = dataRow["AnswerUrl"].ToString();
+                                call.HangupUrl = dataRow["HangupUrl"].ToString();
+                                call.Pulse = Convert.ToByte(dataRow["Pulse"]);
+                                call.PricePerPulse = float.Parse(dataRow["PricePerPulse"].ToString());
+                                call.PriorityValue = Convert.ToByte(dataRow["Priority"]);
+                                call.IsGroupCall = true;
+                                this._callsQueue.EnQueue(call, pollingInput.PriorityMode);
+                            }
+                            catch (Exception e)
+                            {
+                                SharedClass.Logger.Error("Error In Constructing Call Object : " + e.ToString());
+                                try
+                                {
+                                    PropertyInfo[] properties = call.GetType().GetProperties();
+                                    foreach (PropertyInfo propertyInfo in properties)
+                                    {
+                                        if (propertyInfo.CanRead)
+                                        {
+                                            if (propertyInfo.GetValue(call) == DBNull.Value)
+                                                SharedClass.DumpLogger.Error(propertyInfo.Name + " : NULL");
+                                            else
+                                                SharedClass.DumpLogger.Error(propertyInfo.Name + " : " + propertyInfo.GetValue(call).ToString());
+                                        }
+                                    }
+                                }
+                                catch (Exception e1)
+                                { }
+                                finally
+                                {
+
+                                }
+                            }
+                        }
+                        //this.UpdateLastSlno(priorityMode, call.QueueTableSlno);
+                        CallsQueueSlno.SetSlno(this._id, pollingInput.Environment, pollingInput.PriorityMode, call.QueueTableSlno);
+                    }
+                    else
+                    {
+                        try
+                        {
+                            Thread.Sleep(2000);
+                        }
+                        catch(ThreadAbortException)
+                        {
+
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    SharedClass.Logger.Error(("Error In Polling, " + ex.ToString()));
+                }
+                finally
+                {
+                    da = null;
+                    ds = null;
+                }
+            }
+
+            SharedClass.Logger.Info("Stopped Polling, ShouldIPoll : " + this._shouldIPoll + ", Has Stop Signal : " + SharedClass.HasStopSignal);
+            while (!this._pushThreadMutex.WaitOne())
+            {
+                Thread.Sleep(100);
+                SharedClass.Logger.Info("Waiting for pushThreadMutex to decrease pollThreadsRunning count");
+            }
+            --this._pollThreadsRunning;
+            this._pushThreadMutex.ReleaseMutex();
+            if (SharedClass.HasStopSignal)
+            {
+                return;
+            }
+            string str = this.GetDisplayString() + " ";
+            string text;
+            text = str + "UP Poller Stopped";
+
+            
+            lock (SharedClass.Notifier)
+            {
+                SharedClass.Notifier.SendSms(text);
+            }
+        }
+
         private void StartPushing()
         {
             int loopCount = 0;
@@ -369,7 +553,7 @@ namespace VoiceController
             while (this._shouldIProcess && !SharedClass.HasStopSignal)
             {   
                 try
-                {   
+                {
                     if ((call = this._callsQueue.DeQueue()) == null)
                     {
                         try
@@ -380,12 +564,17 @@ namespace VoiceController
                     }
                     else
                     {
+                        SharedClass.Logger.Info("Dequeued Call of CallId : " + call.QueueTableSlno.ToString() + " Source: " + call.Environment.ToString());
                         this.WaitForLines();
-                        if (!this.ShouldIPushCall()) {
+                        
+                        if (!this.ShouldIPushCall()) 
+                        {
+                            
                             this._callsQueue.EnQueue(call, Priority.GetPriority(call.PriorityValue));
                             call = null;
                             continue;
                         }
+                        
                         startTime = SharedClass.CurrentTimeStamp();
                         this.ProcessCall(call);
                         timeTaken = SharedClass.CurrentTimeStamp() - startTime;
@@ -421,6 +610,7 @@ namespace VoiceController
         }
         public void ProcessCall(Call call)
         {
+            SharedClass.Logger.Info("Processing Call of CallId : " + call.QueueTableSlno.ToString() + " Source: " + call.Environment.ToString());
             HttpWebRequest request = null;
             HttpWebResponse response = null;
             StreamReader streamReader = null;
@@ -433,11 +623,26 @@ namespace VoiceController
                     call.Destination = this._dialPrefix + call.Destination;
                 string payload = "From=" + call.CallerId.UrlEncode() + "&To=" + call.Destination.UrlEncode() + "&OriginationUUID=" + call.UUID.UrlEncode() + "&Gateways=" + this.OriginationUrl.UrlEncode();
                 payload += "&SequenceNumber=" + call.CallId + "&AnswerUrl=" + call.AnswerUrl.UrlEncode() + "&HangupUrl=" + ((call.HangupUrl != null && call.HangupUrl.Trim().Length > 0) ? call.HangupUrl : call.AnswerUrl).UrlEncode();
+                //payload += "&CallBackByRMQ=1";
                 payload += "&NotifyCallFlow=RMQ&CallBackByRMQ=1";
+                payload += "&GwID=" + this._id.ToString();
                 if (call.Environment == Environment.STAGING)
-                    payload += "&GwID=S" + this._id.ToString() + "&";
+                {
+                    if (call.IsGroupCall)
+                        payload += "&Source=" + Environment.STAGINGGROUPCALL.ToString();
+                    else
+                        payload += "&Source=" + Environment.STAGING.ToString();
+                    //payload += "&Source=" + Environment.STAGING.ToString();
+                }   
                 else
-                    payload += "&GwID=" + this._id.ToString() + "&";
+                {
+                    if (call.IsGroupCall)
+                        payload += "&Source=" + Environment.PRODUCTIONGROUPCALL.ToString();
+                    else
+                        payload += "&Source=" + Environment.PRODUCTION.ToString();
+                    //payload += "&Source=" + Environment.PRODUCTION.ToString();
+                }
+                    
                 if (call.RingUrl.Length > 0)
                     payload = payload + "&RingUrl=" + call.RingUrl.UrlEncode();
                 payload += "&ActionMethod=POST";
@@ -445,7 +650,7 @@ namespace VoiceController
                     payload += "&AnswerXml=" + call.Xml.UrlEncode();
                 if (this.ExtraDialString.Length > 0)
                     payload += "&ExtraDialString=" + this.ExtraDialString.UrlEncode();
-                SharedClass.Logger.Info(payload);
+                SharedClass.Logger.Info("Payload for call of Id : "+ call.QueueTableSlno.ToString() +" is : " + payload);
                 request = (HttpWebRequest)WebRequest.Create(this.ConnectUrl + "Call/");
                 request.Method = "POST";
                 request.Proxy = null;
@@ -503,7 +708,7 @@ namespace VoiceController
         }
         public bool ShouldIPushCall()
         {
-            return this._shouldIPoll && this._shouldIProcess && SharedClass.HasStopSignal;
+            return this._shouldIPoll && this._shouldIProcess && !SharedClass.HasStopSignal;
         }
         public void WaitForLines()
         {

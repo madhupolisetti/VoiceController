@@ -24,6 +24,7 @@ namespace VoiceController
         private static HangupProcessor _hangupProcessor = null;
         private static bool _isHangupConsumerRunning = false;
         private static bool _isCallFlowsConsumerRunning = false;
+        private static bool _isCallBacksConsumerRunning = false;
         private static bool _isHangupLazyProcessorRunning = false;
         private static Dictionary<int, Gateway> _gatewayMap = new Dictionary<int, Gateway>();
         private static Mutex _activeAccountsMutex = new Mutex();
@@ -234,6 +235,18 @@ namespace VoiceController
                 SharedClass._isCallFlowsConsumerRunning = value;
             }
         }
+        public static bool IsCallBacksConsumerRunning
+        {
+            get
+            {
+                return SharedClass._isCallBacksConsumerRunning;
+            }
+            set
+            {
+                SharedClass._isCallBacksConsumerRunning = value;
+            }
+        }
+
         public static RabbitMQClient RabbitMQClient
         {
             get

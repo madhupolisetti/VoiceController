@@ -23,6 +23,7 @@ namespace VoiceController
         private int _totalCount = 0;
         private long _voiceRequestId = 0L;
         private byte _toolId = 0;
+        private long _campaignScheduleId = 0; 
         private Environment _environment = Environment.PRODUCTION;
 
         public long Id { get { return this._id; } set { this._id = value; } } 
@@ -45,9 +46,11 @@ namespace VoiceController
             get { return this._environment; }
             set { this._environment = value; }
         }
+        public long CampaignScheduleId { get { return this._campaignScheduleId; } set { this._campaignScheduleId = value; } }
+
         public string DisplayString()
         {
-            return " Id : " + this.Id.ToString() + ", RingUrl : " + this.RingUrl + ", AnswerUrl : " + this.AnswerUrl + ", HangupUrl : " + this.HangupUrl + ", CallerId : " + this.CallerId + ", Status : " + this.Status.ToString() + ", ProcessedCount : " + this.ProcessedCount.ToString() + ", VoiceRequestId : " + this.VoiceRequestId.ToString();
+            return " Id : " + this.Id.ToString() + ", RingUrl : " + this.RingUrl + ", AnswerUrl : " + this.AnswerUrl + ", HangupUrl : " + this.HangupUrl + ", CallerId : " + this.CallerId + ", Status : " + this.Status.ToString() + ", ProcessedCount : " + this.ProcessedCount.ToString() + ", VoiceRequestId : " + this.VoiceRequestId.ToString() + " CampaignScheduleId : "+this.CampaignScheduleId.ToString()+" Environment : " + this.Environment.ToString();
         }
         public void UpdateProcessedCount() {
             System.Data.SqlClient.SqlConnection sqlCon = null;

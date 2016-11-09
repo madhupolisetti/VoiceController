@@ -22,6 +22,7 @@ namespace VoiceController
         private byte _pulse = 0;
         private float _pricePerPulse = 0.0f;
         private byte _priorityValue = 0;
+        private bool _isGroupCall = false;
         private Environment _environment = Environment.PRODUCTION;
 
         public long QueueTableSlno
@@ -185,9 +186,15 @@ namespace VoiceController
             set { this._environment = value; }
         }
 
+        public bool IsGroupCall
+        {
+            get { return this._isGroupCall; }
+            set { this._isGroupCall = value; }
+        }
+
         public string PrintMe()
         {
-            return " QueueTableSlno : " + this.QueueTableSlno.ToString() + ", Environment : " + this._environment.ToString() + ", MobileId : " + this.CallId.ToString() + ", Destination : " + this.Destination + ", CallerId : " + this.CallerId;
+            return " QueueTableSlno : " + this.QueueTableSlno.ToString() + ", Environment : " + this._environment.ToString() + ", MobileId : " + this.CallId.ToString() + ", Destination : " + this.Destination + ", CallerId : " + this.CallerId + ", IsGroupCall : " +  this.IsGroupCall.ToString();
         }
     }
 }

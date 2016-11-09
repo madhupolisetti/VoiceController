@@ -16,7 +16,13 @@ namespace VoiceController
         private Queue<JObject> hangupQueue = new Queue<JObject>();
         private bool isIamRunning = false;
         private SqlConnection sqlCon = null;
+        private SqlConnection sqlConStaging = (SqlConnection)null;
+        private SqlCommand sqlCmdStaging = (SqlCommand)null;
         private SqlCommand sqlCmd = null;
+        private SqlConnection _groupCallSqlConStaging = (SqlConnection)null;
+        private SqlConnection _groupCallSqlConProduction = (SqlConnection)null;
+        private SqlCommand _groupCallSqlCmdStaging = (SqlCommand)null;
+        private SqlCommand _groupCallSqlCmdProduction = (SqlCommand)null;
         private BasicDeliverEventArgs eventArgs = null;
         private string message = null;
         private JObject hangupData = null;
@@ -34,8 +40,22 @@ namespace VoiceController
 
         public void Start()
         {
-            this.sqlCon = new SqlConnection(SharedClass.ConnectionString);
+            this.sqlCon = new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION));
             this.sqlCmd = new SqlCommand("VC_Call_Hangup_Processor", this.sqlCon);
+            this._groupCallSqlConProduction = new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION));
+            this._groupCallSqlCmdProduction = new SqlCommand("VC_GroupCall_Hangup_Processor", this._groupCallSqlConProduction);
+
+            if(SharedClass.PollStaging)
+            {
+                this.sqlConStaging = new SqlConnection(SharedClass.GetConnectionString(Environment.STAGING));
+                this.sqlCmdStaging = new SqlCommand("VC_Call_Hangup_Processor", this.sqlConStaging);
+
+                this._groupCallSqlConStaging = new SqlConnection(SharedClass.GetConnectionString(Environment.STAGING));
+                this._groupCallSqlCmdStaging = new SqlCommand("VC_GroupCall_Hangup_Processor", this._groupCallSqlConStaging);
+
+            }
+                
+            
             this.xmlDoc = new XmlDocument();
             this.rootElement = this.xmlDoc.CreateElement("Call");
             this.xmlDoc.AppendChild((XmlNode)this.rootElement);
@@ -72,38 +92,25 @@ namespace VoiceController
                     this.hangupData = this.DeQueue();
                     if (this.hangupData != null)
                     {
-                        this.retryAttempt = 0;
-                        while (true)
-                        {
-                            try
-                            {
-                                this.rootElement.Attributes.RemoveAll();
-                                foreach (JProperty jproperty in this.hangupData.Properties())
-                                    this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
-                                if (this.sqlCon.State != ConnectionState.Open)
-                                    this.sqlCon.Open();
-                                this.sqlCmd.Parameters.Clear();
-                                this.sqlCmd.CommandType = CommandType.StoredProcedure;
-                                this.sqlCmd.Parameters.Add("@Data", SqlDbType.VarChar, this.xmlDoc.InnerXml.Length).Value = this.xmlDoc.InnerXml;
-                                this.sqlCmd.Parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
-                                this.sqlCmd.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
-                                this.sqlCmd.ExecuteNonQuery();
-                                this.hangupData = null;
-                                break;
-                            }
-                            catch (Exception ex)
-                            {
-                                SharedClass.Logger.Error("Error Processing Hangup Data, Reason : " + ex.ToString());
-                                ++this.retryAttempt;
-                                if (this.retryAttempt < 3)
-                                    SharedClass.Logger.Info("Retry Attempt : " + this.retryAttempt);
-                                else
-                                {
-                                    SharedClass.Logger.Info("Max Retry Attempts Reached. Ignoring Object : " + this.hangupData.ToString());
-                                    break;
-                                }
-                            }
-                        }
+                        //JToken token;
+                        //if(hangupData.SelectToken("source") != null && hangupData.TryGetValue("source",out token))
+                        //{
+                        //    if (token.ToString().Equals(Environment.STAGING.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        //        this.ProcessHangupObjStaging();
+                        //    else if (token.ToString().Equals(Environment.PRODUCTION.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        //        this.ProcessHangupObjProduction();
+                        //    else if (token.ToString().Equals(Environment.STAGINGGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        //        this.ProcessGroupCallHangupObjStaging();
+                        //    else if (token.ToString().Equals(Environment.PRODUCTIONGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        //        this.ProcessGroupCallHangupObjProduction();
+                        //    else
+                        //        this.ProcessHangupObjProduction();
+                        //}
+                        //else
+                        //{
+                        //    this.ProcessHangupObjProduction();
+                        //}
+                        this.ProcessHangUpObj();
                     }
                 }
                 else
@@ -111,6 +118,181 @@ namespace VoiceController
             }
             this.isIamRunning = false;
         }
+
+        private void ProcessHangupObjProduction()
+        {
+            this.retryAttempt = 0;
+            while (true)
+            {
+                try
+                {
+                    this.rootElement.Attributes.RemoveAll();
+                    foreach (JProperty jproperty in ((JObject)this.hangupData.SelectToken("smscresponse")).Properties())
+                        this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
+                    //foreach (JProperty jproperty in this.hangupData.Properties())
+                    //    this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
+                    if (this.sqlCon.State != ConnectionState.Open)
+                        this.sqlCon.Open();
+                    this.sqlCmd.Parameters.Clear();
+                    this.sqlCmd.CommandType = CommandType.StoredProcedure;
+                    this.sqlCmd.Parameters.Add("@Data", SqlDbType.VarChar, this.xmlDoc.InnerXml.Length).Value = this.xmlDoc.InnerXml;
+                    this.sqlCmd.Parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
+                    this.sqlCmd.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+                    this.sqlCmd.ExecuteNonQuery();
+                    if(!Convert.ToBoolean(this.sqlCmd.Parameters["@Success"].Value))
+                    {
+                        SharedClass.Logger.Error("Error in updating hanuUpObj: " +this.hangupData.ToString() +" Reason :  " + this.sqlCmd.Parameters["@Message"].Value.ToString());
+                    }
+                    this.hangupData = null;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    SharedClass.Logger.Error("Error Processing Hangup Data, Reason : " + ex.ToString());
+                    ++this.retryAttempt;
+                    if (this.retryAttempt < 3)
+                        SharedClass.Logger.Info("Retry Attempt : " + this.retryAttempt);
+                    else
+                    {
+                        SharedClass.Logger.Info("Max Retry Attempts Reached. Ignoring Object : " + this.hangupData.ToString());
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void ProcessHangupObjStaging()
+        {
+            this.retryAttempt = 0;
+            while (true)
+            {
+                try
+                {
+                    this.rootElement.Attributes.RemoveAll();
+                    //foreach (JProperty jproperty in this.hangupData.Properties())
+                    //    this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
+                    foreach (JProperty jproperty in ((JObject)this.hangupData.SelectToken("smscresponse")).Properties())
+                        this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
+                    if (this.sqlConStaging.State != ConnectionState.Open)
+                        this.sqlConStaging.Open();
+                    this.sqlCmdStaging.Parameters.Clear();
+                    this.sqlCmdStaging.CommandType = CommandType.StoredProcedure;
+                    this.sqlCmdStaging.Parameters.Add("@Data", SqlDbType.VarChar, this.xmlDoc.InnerXml.Length).Value = this.xmlDoc.InnerXml;
+                    this.sqlCmdStaging.Parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
+                    this.sqlCmdStaging.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+                    this.sqlCmdStaging.ExecuteNonQuery();
+                    if (!Convert.ToBoolean(this.sqlCmdStaging.Parameters["@Success"].Value))
+                    {
+                        SharedClass.Logger.Error("Error in updating hanuUpObj: " + this.hangupData.ToString() + " Reason :  " + this.sqlCmd.Parameters["@Message"].Value.ToString());
+                    }
+                    this.hangupData = null;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    SharedClass.Logger.Error("Error Processing Hangup Data, Reason : " + ex.ToString());
+                    ++this.retryAttempt;
+                    if (this.retryAttempt < 3)
+                        SharedClass.Logger.Info("Retry Attempt : " + this.retryAttempt);
+                    else
+                    {
+                        SharedClass.Logger.Info("Max Retry Attempts Reached. Ignoring Object : " + this.hangupData.ToString());
+                        break;
+                    }
+                }
+            }
+        }
+
+
+        private void ProcessGroupCallHangupObjStaging()
+        {
+            this.retryAttempt = 0;
+            while (true)
+            {
+                try
+                {
+                    this.rootElement.Attributes.RemoveAll();
+                    //foreach (JProperty jproperty in this.hangupData.Properties())
+                    //    this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
+                    foreach (JProperty jproperty in ((JObject)this.hangupData.SelectToken("smscresponse")).Properties())
+                        this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
+                    if (this._groupCallSqlConStaging.State != ConnectionState.Open)
+                        this._groupCallSqlConStaging.Open();
+                    this._groupCallSqlCmdStaging.Parameters.Clear();
+                    this._groupCallSqlCmdStaging.CommandType = CommandType.StoredProcedure;
+                    this._groupCallSqlCmdStaging.Parameters.Add("@Data", SqlDbType.VarChar, this.xmlDoc.InnerXml.Length).Value = this.xmlDoc.InnerXml;
+                    this._groupCallSqlCmdStaging.Parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
+                    this._groupCallSqlCmdStaging.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+                    this._groupCallSqlCmdStaging.ExecuteNonQuery();
+                    if (!Convert.ToBoolean(this._groupCallSqlCmdStaging.Parameters["@Success"].Value))
+                    {
+                        SharedClass.Logger.Error("Error in updating hanuUpObj: " + this.hangupData.ToString() + " Reason :  " + this.sqlCmd.Parameters["@Message"].Value.ToString());
+                    }
+                    this.hangupData = null;
+                    this.hangupData = null;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    SharedClass.Logger.Error("Error Processing Hangup Data, Reason : " + ex.ToString());
+                    ++this.retryAttempt;
+                    if (this.retryAttempt < 3)
+                        SharedClass.Logger.Info("Retry Attempt : " + this.retryAttempt);
+                    else
+                    {
+                        SharedClass.Logger.Info("Max Retry Attempts Reached. Ignoring Object : " + this.hangupData.ToString());
+                        break;
+                    }
+                }
+            }
+        }
+
+
+        private void ProcessGroupCallHangupObjProduction()
+        {
+            this.retryAttempt = 0;
+            while (true)
+            {
+                try
+                {
+                    this.rootElement.Attributes.RemoveAll();
+                    //foreach (JProperty jproperty in this.hangupData.Properties())
+                    //    this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
+                    foreach (JProperty jproperty in ((JObject)this.hangupData.SelectToken("smscresponse")).Properties())
+                        this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
+                    if (this._groupCallSqlConProduction.State != ConnectionState.Open)
+                        this._groupCallSqlConProduction.Open();
+                    this._groupCallSqlCmdProduction.Parameters.Clear();
+                    this._groupCallSqlCmdProduction.CommandType = CommandType.StoredProcedure;
+                    this._groupCallSqlCmdProduction.Parameters.Add("@Data", SqlDbType.VarChar, this.xmlDoc.InnerXml.Length).Value = this.xmlDoc.InnerXml;
+                    this._groupCallSqlCmdProduction.Parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
+                    this._groupCallSqlCmdProduction.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+                    this._groupCallSqlCmdProduction.ExecuteNonQuery();
+                    if (!Convert.ToBoolean(this._groupCallSqlCmdProduction.Parameters["@Success"].Value))
+                    {
+                        SharedClass.Logger.Error("Error in updating hanuUpObj: " + this.hangupData.ToString() + " Reason :  " + this.sqlCmd.Parameters["@Message"].Value.ToString());
+                    }
+                    this.hangupData = null;
+                    this.hangupData = null;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    SharedClass.Logger.Error("Error Processing Hangup Data, Reason : " + ex.ToString());
+                    ++this.retryAttempt;
+                    if (this.retryAttempt < 3)
+                        SharedClass.Logger.Info("Retry Attempt : " + this.retryAttempt);
+                    else
+                    {
+                        SharedClass.Logger.Info("Max Retry Attempts Reached. Ignoring Object : " + this.hangupData.ToString());
+                        break;
+                    }
+                }
+            }
+        }
+
+
+        
 
         public void StartRMQProcessing()
         {
@@ -149,41 +331,43 @@ namespace VoiceController
                             this.retryAttempt = 0;
                             this.message = Encoding.UTF8.GetString(this.eventArgs.Body);
                             this.hangupData = JObject.Parse(this.message);
-                            while (true)
-                            {
-                                try
-                                {
-                                    this.rootElement.Attributes.RemoveAll();
-                                    foreach (JProperty jproperty in ((JObject)this.hangupData.SelectToken("smscresponse")).Properties())
-                                        this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
-                                    if (this.sqlCon.State != ConnectionState.Open)
-                                        this.sqlCon.Open();
-                                    this.sqlCmd.Parameters.Clear();
-                                    this.sqlCmd.CommandType = CommandType.StoredProcedure;
-                                    SharedClass.Logger.Info("Data to db : " + this.xmlDoc.InnerXml);
-                                    SqlParameterCollection parameters = this.sqlCmd.Parameters;
-                                    parameters.Add("@Data", SqlDbType.VarChar, -1).Value = this.xmlDoc.InnerXml;
-                                    parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
-                                    parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
-                                    this.sqlCmd.ExecuteNonQuery();
-                                    this.hangupData = null;
-                                    break;
-                                }
-                                catch (Exception ex)
-                                {
-                                    SharedClass.Logger.Error("Error Processing HangupObj : " + ex.ToString());
-                                    ++this.retryAttempt;
-                                    if ((int)this.retryAttempt < 3)
-                                    {
-                                        SharedClass.Logger.Info("Retry Attempt : " + this.retryAttempt);
-                                    }
-                                    else
-                                    {
-                                        SharedClass.DumpLogger.Info("Max Retry Attempts Reached. Ignoring Object : " + this.hangupData.ToString());
-                                        break;
-                                    }
-                                }
-                            }
+
+                            this.ProcessHangUpObj();
+                            //while (true)
+                            //{
+                            //    try
+                            //    {
+                            //        this.rootElement.Attributes.RemoveAll();
+                            //        foreach (JProperty jproperty in ((JObject)this.hangupData.SelectToken("smscresponse")).Properties())
+                            //            this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
+                            //        if (this.sqlCon.State != ConnectionState.Open)
+                            //            this.sqlCon.Open();
+                            //        this.sqlCmd.Parameters.Clear();
+                            //        this.sqlCmd.CommandType = CommandType.StoredProcedure;
+                            //        SharedClass.Logger.Info("Data to db : " + this.xmlDoc.InnerXml);
+                            //        SqlParameterCollection parameters = this.sqlCmd.Parameters;
+                            //        parameters.Add("@Data", SqlDbType.VarChar, -1).Value = this.xmlDoc.InnerXml;
+                            //        parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
+                            //        parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+                            //        this.sqlCmd.ExecuteNonQuery();
+                            //        this.hangupData = null;
+                            //        break;
+                            //    }
+                            //    catch (Exception ex)
+                            //    {
+                            //        SharedClass.Logger.Error("Error Processing HangupObj : " + ex.ToString());
+                            //        ++this.retryAttempt;
+                            //        if ((int)this.retryAttempt < 3)
+                            //        {
+                            //            SharedClass.Logger.Info("Retry Attempt : " + this.retryAttempt);
+                            //        }
+                            //        else
+                            //        {
+                            //            SharedClass.DumpLogger.Info("Max Retry Attempts Reached. Ignoring Object : " + this.hangupData.ToString());
+                            //            break;
+                            //        }
+                            //    }
+                            //}
                             SharedClass.RabbitMQClient.channel.BasicAck(this.eventArgs.DeliveryTag, false);
                             this.eventArgs = null;
                             break;
@@ -223,6 +407,38 @@ namespace VoiceController
             }
             this.isIamRunning = false;
             SharedClass.Logger.Info("Exited From While Loop");
+        }
+
+        private void ProcessHangUpObj()
+        {
+            SharedClass.Logger.Info("HangupObj Data is : " + this.hangupData.ToString());
+            try
+            {
+                JToken token;
+                if (hangupData.SelectToken("source") != null && hangupData.TryGetValue("source", out token))
+                {
+                    if (token.ToString().Equals(Environment.STAGING.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.ProcessHangupObjStaging();
+                    else if (token.ToString().Equals(Environment.PRODUCTION.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.ProcessHangupObjProduction();
+                    else if (token.ToString().Equals(Environment.STAGINGGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.ProcessGroupCallHangupObjStaging();
+                    else if (token.ToString().Equals(Environment.PRODUCTIONGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.ProcessGroupCallHangupObjProduction();
+                    else
+                        this.ProcessHangupObjProduction();
+                }
+                else
+                {
+                    this.ProcessHangupObjProduction();
+                }
+            }
+            catch(Exception ex)
+            {
+                SharedClass.Logger.Error("Exception in getting the source parameter from HangUpData Reason :" + ex.ToString());
+            }
+
+            
         }
 
         public bool EnQueue(JObject data)

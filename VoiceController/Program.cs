@@ -20,7 +20,7 @@ namespace VoiceController
             { 
                 new VoiceService() 
             };
-            if (Environment.UserInteractive)
+            if (System.Environment.UserInteractive)
             {
                 RunInteractiveServices(ServicesToRun);
             }

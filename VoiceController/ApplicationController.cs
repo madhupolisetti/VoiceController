@@ -15,6 +15,8 @@ namespace VoiceController
     {
         private Thread _pollThread = null;
         private Thread _pollThreadStaging = null;
+        private bool _isIamPollingS = false;
+        private bool _isIamPollingP = false;
 
         public ApplicationController()
         {
@@ -29,7 +31,8 @@ namespace VoiceController
                 SharedClass.Logger.Info("Starting RabbitMQ Client");
                 SharedClass.RabbitMQClient.Start();
             }
-            if (SharedClass.HangupProcessor != null) {
+            if (SharedClass.HangupProcessor != null)
+            {
                 SharedClass.Logger.Info("Starting Hangup Processor");
                 SharedClass.HangupProcessor.Start();
             }
@@ -111,11 +114,19 @@ namespace VoiceController
                 SharedClass.Logger.Info("Stopping Listener");
                 SharedClass.Listener.Destroy();
             }
-            while (this._isIamPolling)
+            while(this._isIamPollingP)
             {
                 SharedClass.Logger.Info("DbPoller Is Still Running, Thread State : " + this._pollThread.ThreadState.ToString());
                 if (this._pollThread.ThreadState == ThreadState.WaitSleepJoin)
                     this._pollThread.Interrupt();
+                Thread.Sleep(100);
+            }
+
+            while (this._isIamPollingS)
+            {
+                SharedClass.Logger.Info("DbPollerStaging Is Still Running, Thread State : " + this._pollThread.ThreadState.ToString());
+                if (this._pollThreadStaging.ThreadState == ThreadState.WaitSleepJoin)
+                    this._pollThreadStaging.Interrupt();
                 Thread.Sleep(100);
             }
             SharedClass.IsServiceCleaned = true;
@@ -133,6 +144,10 @@ namespace VoiceController
             {
                 try
                 {
+                    if (environment == Environment.STAGING)
+                        _isIamPollingS = true;
+                    else
+                        _isIamPollingP = true;
                     sqlCommand.Parameters.Clear();
                     sqlCommand.Parameters.Add("@LastRequestId", SqlDbType.BigInt).Value = BulkRequestId.GetLastId(environment);
                     sqlDataAdapter = new SqlDataAdapter();
@@ -140,6 +155,7 @@ namespace VoiceController
                     dataSet = new DataSet();
                     sqlDataAdapter.Fill(dataSet);
                     if (dataSet.Tables.Count > 0 && dataSet.Tables[0].Rows.Count > 0)
+
                     {
                         BulkRequest bulkRequest = null;
                         foreach (DataRow dataRow in dataSet.Tables[0].Rows)
@@ -154,17 +170,38 @@ namespace VoiceController
                                 bulkRequest.ToolId = Convert.ToByte(dataRow["ToolId"]);
                                 bulkRequest.Destinations = new StringBuilder(dataRow["MobileNumbersList"].ToString());
                                 bulkRequest.UUIDs = new StringBuilder(dataRow["UUIDsList"].ToString());
-                                bulkRequest.RingUrl = dataRow["RingUrl"].ToString();
-                                bulkRequest.AnswerUrl = dataRow["AnswerUrl"].ToString();
-                                bulkRequest.HangupUrl = dataRow["HangupUrl"].ToString();
-                                bulkRequest.Retries = Convert.ToByte(dataRow["Retries"].ToString());
-                                bulkRequest.CallerId = dataRow["CallerId"].ToString();
-                                bulkRequest.Status = Convert.ToByte(dataRow["Status"].ToString());
+                                if (!dataRow["RingUrl"].IsDBNull())
+                                    bulkRequest.RingUrl = dataRow["RingUrl"].ToString();
+                                else
+                                    bulkRequest.RingUrl = "";
+                                if (!dataRow["AnswerUrl"].IsDBNull())
+                                    bulkRequest.AnswerUrl = dataRow["AnswerUrl"].ToString();
+                                else
+                                    bulkRequest.AnswerUrl = "";
+                                if (!dataRow["HangupUrl"].IsDBNull())
+                                    bulkRequest.HangupUrl = dataRow["HangupUrl"].ToString();
+                                else
+                                    bulkRequest.HangupUrl = "";
+                                if (!dataRow["Retries"].IsDBNull())
+                                    bulkRequest.Retries = Convert.ToByte(dataRow["Retries"].ToString());
+                                else
+                                    bulkRequest.Retries = 0;
+                                if (!dataRow["CallerId"].IsDBNull())
+                                    bulkRequest.CallerId = dataRow["CallerId"].ToString();
+                                else
+                                    bulkRequest.CallerId = "";
+
+                                if (!dataRow["Status"].IsDBNull())
+                                    bulkRequest.Status = Convert.ToByte(dataRow["Status"].ToString());
+                                else
+                                    bulkRequest.Status = 0;
                                 if (dataRow["ProcessedCount"] != DBNull.Value)
                                     bulkRequest.ProcessedCount = Convert.ToInt32(dataRow["ProcessedCount"].ToString());
-                                bulkRequest.TotalCount = Convert.ToInt32(dataRow["TotalCount"].ToString());
+                                if (!dataRow["TotalCount"].IsDBNull())
+                                    bulkRequest.TotalCount = Convert.ToInt32(dataRow["TotalCount"].ToString());
                                 if (dataRow["RequestId"] != DBNull.Value)
                                     bulkRequest.VoiceRequestId = Convert.ToInt64(dataRow["RequestId"].ToString());
+                                bulkRequest.CampaignScheduleId = Convert.ToInt64(dataRow["CampaignScheduleId"]);
                                 AccountProcessor accountProcessor = null;
                                 lock (SharedClass.ActiveAccountProcessors)
                                 {
@@ -244,7 +281,63 @@ namespace VoiceController
                 {
                     SharedClass.Logger.Error(ex);
                 }
+                if (environment == Environment.STAGING)
+                    _isIamPollingS = false;
+                else
+                    _isIamPollingP = false;
             }
+        }
+
+        private void SetLastQueuedSlno()
+        {
+            SharedClass.Logger.Info("Getting Last Queued Slno's");
+            SqlCommand sqlCmd = (SqlCommand)null;
+            SqlConnection sqlCon = (SqlConnection)null; 
+            try
+            {
+                sqlCon = new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION));
+                sqlCmd = new SqlCommand("SELECT Id,ISNULL(HPQLastSlno,0) as HPSlno, ISNULL(MPQLastSlno,0) as MPSlno, ISNULL(LPQLastSlno,0) as LPSlno From VoiceGateways WITH(NOLOCK)", sqlCon);
+                sqlCon.Open();
+                SqlDataReader reader = sqlCmd.ExecuteReader();
+                while(reader.Read())
+                {
+                    CallsQueueSlno.SetSlno(Convert.ToInt32(reader["Id"]), Environment.PRODUCTION, Priority.PriorityMode.High, Convert.ToInt64(reader["HPSlno"]));
+                    CallsQueueSlno.SetSlno(Convert.ToInt32(reader["Id"]), Environment.PRODUCTION, Priority.PriorityMode.Medium, Convert.ToInt64(reader["MPSlno"]));
+                    CallsQueueSlno.SetSlno(Convert.ToInt32(reader["Id"]), Environment.PRODUCTION, Priority.PriorityMode.Low, Convert.ToInt64(reader["LPSlno"]));
+                }
+                sqlCon.Close();
+
+            }
+            catch(Exception ex)
+            {
+                SharedClass.Logger.Error("Exception in Getting Last Queued Slno Reason : " + ex.ToString());
+            }
+
+            if(SharedClass.PollStaging)
+            {
+                try
+                {
+                    sqlCon = new SqlConnection(SharedClass.GetConnectionString(Environment.STAGING));
+                    sqlCmd = new SqlCommand("SELECT Id,ISNULL(HPQLastSlno,0) as HPSlno, ISNULL(MPQLastSlno,0) as MPSlno, ISNULL(LPQLastSlno,0) as LPSlno From VoiceGateways WITH(NOLOCK)", sqlCon);
+                    sqlCon.Open();
+                    SqlDataReader reader = sqlCmd.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        CallsQueueSlno.SetSlno(Convert.ToInt32(reader["Id"]), Environment.STAGING, Priority.PriorityMode.High, Convert.ToInt64(reader["HPSlno"]));
+                        CallsQueueSlno.SetSlno(Convert.ToInt32(reader["Id"]), Environment.STAGING, Priority.PriorityMode.Medium, Convert.ToInt64(reader["MPSlno"]));
+                        CallsQueueSlno.SetSlno(Convert.ToInt32(reader["Id"]), Environment.STAGING, Priority.PriorityMode.Low, Convert.ToInt64(reader["LPSlno"]));
+                    }
+                    sqlCon.Close();
+                }
+                catch (Exception ex)
+                {
+                    SharedClass.Logger.Error("Exception in Getting Last Queued Slno Of Staging Reason : " + ex.ToString());
+                }
+
+            }
+
+
+            
         }
 
         public void LoadGateways()
@@ -286,7 +379,7 @@ namespace VoiceController
                             gateway.MediumPriorityQueueLastSlno = Convert.ToInt64(dataRow["MediumPriorityQueueLastSlno"]);
                             gateway.LowPriorityQueueLastSlno = Convert.ToInt64(dataRow["LowPriorityQueueLastSlno"]);
                             gateway.PushThreadsTotal = Convert.ToByte(dataRow["PushThreadsTotal"]);
-                            gatewayThread = new Thread(new ThreadStart(gateway.Start));
+                            gatewayThread = new Thread(new ThreadStart(gateway.Start));                            
                             gatewayThread.Name = gateway.Name.Replace(" ", "");
                             SharedClass.Logger.Info("Starting Gateway " + gateway.Name);
                             gatewayThread.Start();
@@ -306,15 +399,17 @@ namespace VoiceController
             }
         }
 
+        
+
         private void LoadConfig()
         {
             SharedClass.SetConnectionString(ConfigurationManager.ConnectionStrings["DbConnectionString"].ConnectionString, Environment.PRODUCTION);
-            if(ConfigurationManager.ConnectionStrings.["DbConnectionStringStaging"] != null)
+            if(ConfigurationManager.ConnectionStrings["DbConnectionStringStaging"] != null)
             {
                 SharedClass.SetConnectionString(ConfigurationManager.ConnectionStrings["DbConnectionStringStaging"].ConnectionString, Environment.STAGING);
                 SharedClass.PollStaging = true;
             }
-            SharedClass.SetConnectionString(ConfigurationManager.ConnectionStrings["DbConnectionStringStaging"].ConnectionString, Environment.STAGING);
+            
             if (ConfigurationManager.AppSettings["GatewayHeartBeatSpan"] == null)            
                 SharedClass.GatewayHeartBeatSpan = 60;
             else
