@@ -10,6 +10,7 @@ using System.IO;
 using System.Net;
 using Newtonsoft.Json.Linq;
 using System.Reflection;
+using System.Xml;
 
 namespace VoiceController
 {
@@ -52,6 +53,9 @@ namespace VoiceController
         private Thread[] _pushThreads = null;
         private long _minTimeTaken = 2000;
         private long _maxTimeTaken = 0;
+        private XmlDocument xmlDoc = null;
+        private List<XmlElement> xmlElementList = new List<XmlElement>();
+        private string numbersString = string.Empty;
         private CallsQueue _callsQueue = null;
         public void Start()
         {
@@ -646,8 +650,76 @@ namespace VoiceController
                 if (call.RingUrl.Length > 0)
                     payload = payload + "&RingUrl=" + call.RingUrl.UrlEncode();
                 payload += "&ActionMethod=POST";
-                if (call.Xml.Length > 0)
-                    payload += "&AnswerXml=" + call.Xml.UrlEncode();
+                //if (call.Xml.Length > 0)
+                //    payload += "&AnswerXml=" + call.Xml.UrlEncode();
+                if(call.Xml.Length > 0)
+                {
+                    try
+                    {
+                        this.xmlDoc = new XmlDocument();
+                        xmlDoc.LoadXml(call.Xml);
+                        string tempNumber = string.Empty;
+                        if (this.xmlDoc.SelectNodes("/Response/Dial").Count > 0)
+                        {
+                            this.xmlElementList = new List<XmlElement>();
+                            foreach (XmlNode node in xmlDoc.SelectNodes("/Response/Dial/Number"))
+                            {
+                                tempNumber = node.InnerText;
+
+                                if (!this._isCountryPrefixAllowed && this._countryPrefix.Length > 0 && tempNumber.StartsWith(this._countryPrefix))
+                                    tempNumber = tempNumber.Substring(this._countryPrefix.Length);
+                                if (this._dialPrefix.Length > 0)
+                                {
+                                    if(!tempNumber.StartsWith(this._dialPrefix))
+                                        tempNumber = this._dialPrefix + tempNumber;
+                                }
+                                    
+
+                                XmlElement tempXmlElement = xmlDoc.CreateElement("Number");
+                                tempXmlElement.InnerText = tempNumber;
+                                tempXmlElement.SetAttribute("gateways", this.OriginationUrl);
+                                xmlElementList.Add(tempXmlElement);
+                            }
+                            xmlDoc.SelectSingleNode("/Response/Dial").InnerXml = "";
+                            foreach (XmlElement element in xmlElementList)
+                            {
+                                xmlDoc.SelectSingleNode("/Response/Dial").AppendChild(element);
+                            }
+                        }
+                        else if (xmlDoc.SelectNodes("/Response/dial").Count > 0)
+                        {
+                            numbersString = string.Empty;
+                            foreach (string number in xmlDoc.SelectSingleNode("/Response/dial").InnerText.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                            {
+                                tempNumber = number;
+
+                                if (!this._isCountryPrefixAllowed && this._countryPrefix.Length > 0 && tempNumber.StartsWith(this._countryPrefix))
+                                    tempNumber = tempNumber.Substring(this._countryPrefix.Length);
+                                if (this._dialPrefix.Length > 0)
+                                    tempNumber = this._dialPrefix + tempNumber;
+
+                                numbersString = numbersString + ",";
+                            }
+                            xmlDoc.SelectSingleNode("/Response/dial").InnerText = "";
+                            numbersString = numbersString.Substring(0, numbersString.Length - 1);
+                            xmlDoc.SelectSingleNode("/Response/dial").InnerText = numbersString;
+                        }
+
+                        payload += "&AnswerXml=" + Convert.ToString(xmlDoc.InnerXml).UrlEncode();
+                    }
+                    catch(Exception ex)
+                    {
+                        SharedClass.Logger.Error("Error in removing prefix in AnswerXML Reason: " + ex.ToString());
+                        payload += "&AnswerXml=" + call.Xml.UrlEncode();
+                    }
+                    finally
+                    {
+                        this.xmlDoc = null;
+                        this.xmlElementList = null;
+                    }
+                    
+                }
+
                 if (this.ExtraDialString.Length > 0)
                     payload += "&ExtraDialString=" + this.ExtraDialString.UrlEncode();
                 SharedClass.Logger.Info("Payload for call of Id : "+ call.QueueTableSlno.ToString() +" is : " + payload);

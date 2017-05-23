@@ -52,13 +52,16 @@ namespace VoiceController
         private SqlCommand _groupCallFlowsSqlCommandStaging = null;
         
         private SqlCommand _callBacksSqlCommandStaging = null;
-        private SqlCommand _callBacksSqlCommand = null;
+        private SqlCommand _callBacksSqlCommandProduction = null;
+        private SqlConnection _callBacksSqlConnectionProduction = null;
+        private SqlConnection _callBacksSqlConnectionStaging = null;
+
+
         private SqlCommand _groupCallBacksSqlCommandStaging = null;
         private SqlCommand _groupCallBacksSqlCommandProduction = null;
-        private SqlConnection _callBacksSqlConnection = null;
-        private SqlConnection _callBacksSqlConnectionStaging = null;
         private SqlConnection _groupCallBacksSqlConnectionStaging = null;
         private SqlConnection _groupCallBacksSqlConnectionProduction = null;
+        
         
         private JObject _paramObject = null;
         private string[] _paramArray = null;
@@ -82,6 +85,8 @@ namespace VoiceController
             _callFlowsSqlConnection = new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION));
             _groupCallFlowsSqlConnectionProduction = new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION));
             _groupCallBacksSqlConnectionProduction = new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION));
+            _callBacksSqlConnectionProduction = new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION));
+
             if(SharedClass.PollStaging)
             {
                 _callFlowsSqlConnectionStaging = new SqlConnection(SharedClass.GetConnectionString(Environment.STAGING));
@@ -93,15 +98,19 @@ namespace VoiceController
                 _groupCallBacksSqlConnectionStaging = new SqlConnection(SharedClass.GetConnectionString(Environment.STAGING));
                 _groupCallBacksSqlCommandStaging = new SqlCommand("VC_Create_GroupCallBacks", _groupCallBacksSqlConnectionStaging);
                 _groupCallBacksSqlCommandStaging.CommandType = CommandType.StoredProcedure;
-
+                _callBacksSqlConnectionStaging = new SqlConnection(SharedClass.GetConnectionString(Environment.STAGING));
+                _callBacksSqlCommandStaging = new SqlCommand("VC_Create_CallBack", _callBacksSqlConnectionStaging);
+                _callBacksSqlCommandStaging.CommandType = CommandType.StoredProcedure;
             }
                 
             _callFlowsSqlCommand = new SqlCommand("VC_Create_CallFlow", _callFlowsSqlConnection);
             _groupCallFlowsSqlCommandProduction = new SqlCommand("VC_Create_GroupCallFlow", _groupCallFlowsSqlConnectionProduction);
             _groupCallBacksSqlCommandProduction = new SqlCommand("VC_Create_GroupCallBacks", _groupCallBacksSqlConnectionProduction);
+            _callBacksSqlCommandProduction = new SqlCommand("VC_Create_CallBack",_callBacksSqlConnectionProduction);
             _callFlowsSqlCommand.CommandType = CommandType.StoredProcedure;
             _groupCallFlowsSqlCommandProduction.CommandType = CommandType.StoredProcedure;
             _groupCallBacksSqlCommandProduction.CommandType = CommandType.StoredProcedure; 
+            _callBacksSqlCommandProduction.CommandType = CommandType.StoredProcedure;
             this._connectThread = new Thread(new ThreadStart(this.ConnectToServer));
             this._connectThread.Name = "RMQConnector";
             this._connectThread.Start();
@@ -562,16 +571,20 @@ namespace VoiceController
                 if (_callBackObject.SelectToken("source") != null && _callBackObject.TryGetValue("source", out token))
                 {
                     SharedClass.Logger.Info("Environment : " + token.ToString());
-                    if (token.ToString().Equals(Environment.STAGINGGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                    if (Convert.ToString(token).Equals(Environment.PRODUCTION.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.InsertCallBackProduction();
+                    else if (Convert.ToString(token).Equals(Environment.STAGING.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.InsertCallBackStaging();
+                    else if (token.ToString().Equals(Environment.STAGINGGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
                         this.InsertGroupCallBacksStaging();
                     else if (token.ToString().Equals(Environment.PRODUCTIONGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
                         this.InsertGroupCallBacksProduction();
                     else
-                        this.InsertGroupCallBacksProduction();
+                        this.InsertCallBackProduction();
                 }
                 else
                 {
-                    InsertGroupCallBacksProduction();
+                    this.InsertCallBackProduction();
                 }
             }
         }
@@ -601,7 +614,7 @@ namespace VoiceController
             }
             catch (Exception e)
             {
-                SharedClass.Logger.Error("Exception whil processing CallFlow : " + _callBackObject.ToString() + ", Reason : " + e.ToString());
+                SharedClass.Logger.Error("Exception whil processing CallBack : " + _callBackObject.ToString() + ", Reason : " + e.ToString());
             }
         }
 
@@ -626,10 +639,63 @@ namespace VoiceController
             }
             catch (Exception e)
             {
-                SharedClass.Logger.Error("Exception whil processing CallFlow : " + _callBackObject.ToString() + ", Reason : " + e.ToString());
+                SharedClass.Logger.Error("Exception whil processing CallBack : " + _callBackObject.ToString() + ", Reason : " + e.ToString());
             }
         }
 
+        private void InsertCallBackProduction()
+        {
+            try
+            {
+                _callBacksSqlCommandProduction.Parameters.Clear();
+                _callBacksSqlCommandProduction.Parameters.Add("@SequenceNumber", SqlDbType.BigInt).Value = _callBackObject.SelectToken("sequencenumber") == null ? 0 : Convert.ToInt64(_callBackObject.SelectToken("sequencenumber").ToString());
+                _callBacksSqlCommandProduction.Parameters.Add("@Event", SqlDbType.VarChar, 200).Value = _callBackObject.SelectToken("event") == null ? "" : Convert.ToString(_callBackObject.SelectToken("event"));
+                _callBacksSqlCommandProduction.Parameters.Add("@RecordURL", SqlDbType.VarChar, 500).Value = _callBackObject.SelectToken("recordurl") == null ? "" : Convert.ToString(_callBackObject.SelectToken("recordurl"));
+                _callBacksSqlCommandProduction.Parameters.Add("@From", SqlDbType.VarChar, 100).Value = _callBackObject.SelectToken("from") == null ? "" : Convert.ToString(_callBackObject.SelectToken("from"));
+                _callBacksSqlCommandProduction.Parameters.Add("@To", SqlDbType.VarChar, 100).Value = _callBackObject.SelectToken("to") == null ? "" : Convert.ToString(_callBackObject.SelectToken("to"));
+                _callBacksSqlCommandProduction.Parameters.Add("@Digits", SqlDbType.VarChar, 50).Value = _callBackObject.SelectToken("digits") == null ? "" : Convert.ToString(_callBackObject.SelectToken("digits"));
+                _callBacksSqlCommandProduction.Parameters.Add("@Success",SqlDbType.Bit).Direction = ParameterDirection.Output;
+                _callBacksSqlCommandProduction.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+
+                if(_callBacksSqlConnectionProduction.State != ConnectionState.Open)
+                    _callBacksSqlConnectionProduction.Open();
+                _callBacksSqlCommandProduction.ExecuteNonQuery();
+
+                if (!Convert.ToBoolean(_callBacksSqlCommandProduction.Parameters["@Success"].Value))
+                    SharedClass.Logger.Error("Exception while inserting CallBack (False From DB) : " + _callBackObject.ToString() + ", Reason : " + _callBacksSqlCommandProduction.Parameters["@Message"].Value);
+            }
+            catch (Exception e)
+            {
+                SharedClass.Logger.Error("Exception whil processing CallBack : " + _callBackObject.ToString() + ", Reason : " + e.ToString());
+            }
+        }
+
+        private void InsertCallBackStaging()
+        {
+            try
+            {
+                _callBacksSqlCommandStaging.Parameters.Clear();
+                _callBacksSqlCommandStaging.Parameters.Add("@SequenceNumber", SqlDbType.BigInt).Value = _callBackObject.SelectToken("sequencenumber") == null ? 0 : Convert.ToInt64(_callBackObject.SelectToken("sequencenumber").ToString());
+                _callBacksSqlCommandStaging.Parameters.Add("@Event", SqlDbType.VarChar, 200).Value = _callBackObject.SelectToken("event") == null ? "" : Convert.ToString(_callBackObject.SelectToken("event"));
+                _callBacksSqlCommandStaging.Parameters.Add("@RecordURL", SqlDbType.VarChar, 500).Value = _callBackObject.SelectToken("recordurl") == null ? "" : Convert.ToString(_callBackObject.SelectToken("recordurl"));
+                _callBacksSqlCommandStaging.Parameters.Add("@From", SqlDbType.VarChar, 100).Value = _callBackObject.SelectToken("from") == null ? "" : Convert.ToString(_callBackObject.SelectToken("from"));
+                _callBacksSqlCommandStaging.Parameters.Add("@To", SqlDbType.VarChar, 100).Value = _callBackObject.SelectToken("to") == null ? "" : Convert.ToString(_callBackObject.SelectToken("to"));
+                _callBacksSqlCommandStaging.Parameters.Add("@Digits", SqlDbType.VarChar, 50).Value = _callBackObject.SelectToken("digits") == null ? "" : Convert.ToString(_callBackObject.SelectToken("digits"));
+                _callBacksSqlCommandStaging.Parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
+                _callBacksSqlCommandStaging.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+
+                if (_callBacksSqlConnectionStaging.State != ConnectionState.Open)
+                    _callBacksSqlConnectionStaging.Open();
+                _callBacksSqlCommandStaging.ExecuteNonQuery();
+
+                if (!Convert.ToBoolean(_callBacksSqlCommandStaging.Parameters["@Success"].Value))
+                    SharedClass.Logger.Error("Exception while inserting CallBack (False From DB) : " + _callBackObject.ToString() + ", Reason : " + _callBacksSqlCommandStaging.Parameters["@Message"].Value);
+            }
+            catch (Exception e)
+            {
+                SharedClass.Logger.Error("Exception whil processing CallBack : " + _callBackObject.ToString() + ", Reason : " + e.ToString());
+            }
+        }
 
         private void InsertCallFlowStaging()
         {
@@ -655,6 +721,7 @@ namespace VoiceController
                 _callFlowsSqlCommandStaging.Parameters.Add("@StatusCode", SqlDbType.Int);
                 _callFlowsSqlCommandStaging.Parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
                 _callFlowsSqlCommandStaging.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+    
                 if (_callFlowsSqlConnectionStaging.State != ConnectionState.Open)
                     _callFlowsSqlConnectionStaging.Open();
                 _callFlowsSqlCommandStaging.ExecuteNonQuery();
