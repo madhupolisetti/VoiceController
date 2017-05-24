@@ -15,7 +15,7 @@ namespace VoiceController
         private static bool _pollStaging = false;
         private static bool _hasStopSignal = false;
         private static bool _isServiceCleaned = true;
-        private static int _gatewayHeartBeatSpan = 30;
+        private static byte _gatewayHeartBeatSpan = 60;
         private static ILog _logger = null;
         private static ILog _dumpLogger = null;
         private static ILog _heartBeatLogger = null;
@@ -190,7 +190,7 @@ namespace VoiceController
                 return SharedClass._heartBeatLogger;
             }
         }
-        public static int GatewayHeartBeatSpan
+        public static byte GatewayHeartBeatSpan
         {
             get
             {

@@ -33,7 +33,9 @@ namespace VoiceController
         private long _highPriorityQueueLastSlno = 0;
         private long _mediumPriorityQueueLastSlno = 0;
         private long _lowPriorityQueueLastSlno = 0;
-        private byte _pushThreadsTotal = 1;
+        private byte _numberOfPushThreads = 1;
+        private byte _startingHour = 0;
+        private byte _stoppingHour = 23;
         private byte _pushThreadsRunning = 0;
         private byte _pollThreadsRunning = 0;
         private bool _shouldIPoll = true;
@@ -123,8 +125,8 @@ namespace VoiceController
                 this._lpPollThreadStaging.Start(new PollingInput(Priority.PriorityMode.Low, Environment.STAGING));
             }
             
-            this._pushThreads = new Thread[this._pushThreadsTotal];
-            for (byte index = 1; index <= this._pushThreadsTotal; ++index)
+            this._pushThreads = new Thread[this._numberOfPushThreads];
+            for (byte index = 1; index <= this._numberOfPushThreads; ++index)
             {
                 this._pushThreads[index - 1] = new Thread(new ThreadStart(this.StartPushing));
                 this._pushThreads[index - 1].Name = this._name + "_Push_" + index;
@@ -845,10 +847,13 @@ namespace VoiceController
         public string CountryPrefix { get { return _countryPrefix; } set { _countryPrefix = value; } }
         public bool IsCountryPrefixAllowed { get { return _isCountryPrefixAllowed; } set { _isCountryPrefixAllowed = value; } }
         public string DialPrefix { get { return _dialPrefix; } set { _dialPrefix = value; } }
+        public byte StartingHour { get { return this._startingHour; } set { this._startingHour = value; } }
+        public byte StoppingHour { get { return this._stoppingHour; } set { this._stoppingHour = value; } }
+        public long UrgentPriorityQueueLastSlno { get { return this._urgentPriorityQueueLastSlno; } set { this._urgentPriorityQueueLastSlno = value; } }
         public long HighPriorityQueueLastSlno { get { return this._highPriorityQueueLastSlno; } set { this._highPriorityQueueLastSlno = value; } }
         public long MediumPriorityQueueLastSlno { get { return this._mediumPriorityQueueLastSlno; } set { this._mediumPriorityQueueLastSlno = value; } }
         public long LowPriorityQueueLastSlno { get { return this._lowPriorityQueueLastSlno; } set { this._lowPriorityQueueLastSlno = value; } }
-        public byte PushThreadsTotal { get { return this._pushThreadsTotal; } set { this._pushThreadsTotal = value; } } 
+        public byte NumberOfPushThreads { get { return this._numberOfPushThreads; } set { this._numberOfPushThreads = value; } } 
         public byte PushThreadsRunning { get { return this._pushThreadsRunning; } set { this._pushThreadsRunning = value; } }
         #endregion
     }

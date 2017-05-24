@@ -8,12 +8,12 @@ namespace VoiceController
 {
     public static class Priority
     {
-        private static byte hpFloor = 0;
-        private static byte hpCeil = 0;
-        private static byte mpFloor = 0;
-        private static byte mpCeil = 0;
-        private static byte lpFloor = 0;
-        private static byte lpCeil = 0;
+        private static byte hpFloor = 1;
+        private static byte hpCeil = 3;
+        private static byte mpFloor = 4;
+        private static byte mpCeil = 7;
+        private static byte lpFloor = 8;
+        private static byte lpCeil = 10;
 
         public static byte HpFloor
         {

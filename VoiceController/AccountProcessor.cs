@@ -29,7 +29,7 @@ namespace VoiceController
             SharedClass.Logger.Info("Started");
             while (this._shouldIProcess && !SharedClass.HasStopSignal)
             {
-                if (this.QueueCount() > 0 && this.ActiveThreads < this._maxThreads)
+                if (this.QueueCount() > 0 && this._activeThreads < this._maxThreads)
                 {
                     BulkRequest bulkRequest = this.DeQueue();
                     if (bulkRequest != null)

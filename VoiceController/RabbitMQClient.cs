@@ -17,8 +17,8 @@ namespace VoiceController
     {
         private string _host = string.Empty;
         private int _port = 0;
-        private string _user = string.Empty;
-        private string _password = string.Empty;
+        private string _user = "guest";
+        private string _password = "guest";
         private bool _isConnected = false;
         private bool _isConnectSignalInProgress = false;
         private Thread _connectThread = null;
