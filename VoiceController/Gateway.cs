@@ -61,6 +61,11 @@ namespace VoiceController
         private CallsQueue _callsQueue = null;
         public void Start()
         {
+            //System.Diagnostics.ProcessThreadCollection c = System.Diagnostics.Process.GetCurrentProcess().Threads;
+            //foreach(System.Diagnostics.ProcessThread pt in c)
+            //{
+            //    pt.
+            //}
             SharedClass.Logger.Info("Loading Into GatewayMap, " + this.GetDisplayString());
             lock (SharedClass.GatewayMap) {
                 SharedClass.GatewayMap.Add(this._id, this);
@@ -167,7 +172,7 @@ namespace VoiceController
             {
                 SharedClass.Logger.Info("Serializing Queue. UpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.Urgent) + ", HpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.High) + ", MpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.Medium) + ", LpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.Low));
                 System.Runtime.Serialization.IFormatter formatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                Stream stream = new FileStream(this._name + ".ser", FileMode.Create, FileAccess.Write, FileShare.None);
+                Stream stream = new FileStream(this._name + ".ser", FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
                 formatter.Serialize(stream, this._callsQueue);
                 stream.Close();
                 SharedClass.Logger.Info("Queue Serialization Successful");
@@ -225,10 +230,11 @@ namespace VoiceController
             try
             {
                 sqlCon = new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION));
-                sqlCmd = new SqlCommand("Update VoiceGateways With(Rowlock) Set HPQLastSlno = @HPQLastSlno, MPQLastSlno = @MPQLastSlno , LPQLastSlno = @LPQLastSlno Where ID = @GatewayId",sqlCon);
+                sqlCmd = new SqlCommand("Update VoiceGateways With(Rowlock) Set UPQLastSlno = @UPQLastSlno, HPQLastSlno = @HPQLastSlno, MPQLastSlno = @MPQLastSlno , LPQLastSlno = @LPQLastSlno Where ID = @GatewayId",sqlCon);
                 sqlCmd.Parameters.Add("@HPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.PRODUCTION, Priority.PriorityMode.High);
                 sqlCmd.Parameters.Add("@MPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.PRODUCTION, Priority.PriorityMode.Medium);
                 sqlCmd.Parameters.Add("@LPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.PRODUCTION, Priority.PriorityMode.Low);
+                sqlCmd.Parameters.Add("@UPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.PRODUCTION, Priority.PriorityMode.Urgent);
                 sqlCmd.Parameters.Add("@GatewayId", SqlDbType.Int).Value = this.Id;
                 sqlCon.Open();
                 sqlCmd.ExecuteNonQuery();
@@ -244,10 +250,11 @@ namespace VoiceController
                 try
                 {
                     sqlCon = new SqlConnection(SharedClass.GetConnectionString(Environment.STAGING));
-                    sqlCmd = new SqlCommand("Update VoiceGateways With(Rowlock) Set HPQLastSlno = @HPQLastSlno, MPQLastSlno = @MPQLastSlno , LPQLastSlno = @LPQLastSlno Where ID = @GatewayId", sqlCon);
+                    sqlCmd = new SqlCommand("Update VoiceGateways With(Rowlock) Set UPQLastSlno = @UPQLastSlno, HPQLastSlno = @HPQLastSlno, MPQLastSlno = @MPQLastSlno , LPQLastSlno = @LPQLastSlno Where ID = @GatewayId", sqlCon);
                     sqlCmd.Parameters.Add("@HPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.STAGING, Priority.PriorityMode.High);
                     sqlCmd.Parameters.Add("@MPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.STAGING, Priority.PriorityMode.Medium);
                     sqlCmd.Parameters.Add("@LPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.STAGING, Priority.PriorityMode.Low);
+                    sqlCmd.Parameters.Add("@UPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.STAGING, Priority.PriorityMode.Urgent);
                     sqlCmd.Parameters.Add("@GatewayId", SqlDbType.Int).Value = this.Id;
                     sqlCon.Open();
                     sqlCmd.ExecuteNonQuery();
@@ -338,27 +345,27 @@ namespace VoiceController
                             }
                             catch (Exception e)
                             {
-                                SharedClass.Logger.Error("Error In Constructing Call Object : " + e.ToString());
-                                try
-                                {
-                                    PropertyInfo[] properties = call.GetType().GetProperties();
-                                    foreach (PropertyInfo propertyInfo in properties)
-                                    {
-                                        if (propertyInfo.CanRead)
-                                        {
-                                            if (propertyInfo.GetValue(call) == DBNull.Value)
-                                                SharedClass.DumpLogger.Error(propertyInfo.Name + " : NULL");
-                                            else
-                                                SharedClass.DumpLogger.Error(propertyInfo.Name + " : " + propertyInfo.GetValue(call).ToString());
-                                        }
-                                    }
-                                }
-                                catch (Exception e1)
-                                { }
-                                finally
-                                {
+                                SharedClass.Logger.Error("Error In Constructing Call Object : " + e.ToString());                                
+                                //try
+                                //{
+                                //    PropertyInfo[] properties = call.GetType().GetProperties();
+                                //    foreach (PropertyInfo propertyInfo in properties)
+                                //    {
+                                //        if (propertyInfo.CanRead)
+                                //        {
+                                //            if (propertyInfo.GetValue(call) == DBNull.Value)
+                                //                SharedClass.DumpLogger.Error(propertyInfo.Name + " : NULL");
+                                //            else
+                                //                SharedClass.DumpLogger.Error(propertyInfo.Name + " : " + propertyInfo.GetValue(call).ToString());
+                                //        }
+                                //    }
+                                //}
+                                //catch (Exception e1)
+                                //{ }
+                                //finally
+                                //{
 
-                                }
+                                //}
                             }
                         }
                         //this.UpdateLastSlno(priorityMode, call.QueueTableSlno);

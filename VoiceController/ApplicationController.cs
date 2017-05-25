@@ -15,8 +15,6 @@ namespace VoiceController
     {
         private Thread _pollThread = null;
         private Thread _pollThreadStaging = null;
-        private bool _isIamPollingS = false;
-        private bool _isIamPollingP = false;
 
         public ApplicationController()
         {
