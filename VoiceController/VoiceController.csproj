@@ -36,7 +36,8 @@
     </StartupObject>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="HeartBeat">
+    <Reference Include="HeartBeat, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\HeartBeat\HeartBeat\bin\Debug\HeartBeat.dll</HintPath>
     </Reference>
     <Reference Include="log4net">
