@@ -36,6 +36,9 @@
     </StartupObject>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="HeartBeat">
+      <HintPath>..\..\HeartBeat\HeartBeat\bin\Debug\HeartBeat.dll</HintPath>
+    </Reference>
     <Reference Include="log4net">
       <HintPath>..\..\..\madhu\DLL\log4net.dll</HintPath>
     </Reference>
@@ -94,7 +97,9 @@
     <Compile Include="SharedClass.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="App.config" />
+    <None Include="App.config">
+      <SubType>Designer</SubType>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ProjectInstaller.resx">

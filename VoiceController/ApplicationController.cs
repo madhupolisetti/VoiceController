@@ -8,6 +8,7 @@ using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using System.Reflection;
+using HeartBeat;
 
 namespace VoiceController
 {
@@ -15,6 +16,7 @@ namespace VoiceController
     {
         private Thread _pollThread = null;
         private Thread _pollThreadStaging = null;
+        private Client heartBeatClient = null;
 
         public ApplicationController()
         {
@@ -50,10 +52,13 @@ namespace VoiceController
                 this._pollThreadStaging.Name = "BulkPollerStaging";
                 this._pollThreadStaging.Start(Environment.STAGING);
             }
+            this.heartBeatClient = new Client(SharedClass.GetConnectionString(Environment.PRODUCTION),6);
+            this.heartBeatClient.Initialize();
         }
 
         public void Stop()
         {
+            this.heartBeatClient.Stop();
             // Stop BulkVoiceRequests Polling Threads
             while (this._pollThread.ThreadState != ThreadState.Stopped)
             {
@@ -155,10 +160,27 @@ namespace VoiceController
             {
                 try
                 {
-                    if (environment == Environment.STAGING)
-                        _isIamPollingS = true;
-                    else
-                        _isIamPollingP = true;
+                    //if (environment == Environment.STAGING)
+                    ////_isIamPollingS = true;
+                    //{
+                    //    while (this._pollThreadStaging.ThreadState != ThreadState.Stopped)
+                    //    {
+                    //        SharedClass.Logger.Info(string.Format("Staging Poll Thread Not Yet Stopped. ThreadState:{0}", this._pollThreadStaging.ThreadState));
+                    //        Thread.Sleep(2000);
+                    //        if (this._pollThreadStaging.ThreadState == ThreadState.WaitSleepJoin)
+                    //            this._pollThreadStaging.Interrupt();
+                    //    }
+                    //}
+                    //else
+                    //{
+                    //    while (this._pollThread.ThreadState != ThreadState.Stopped)
+                    //    {
+                    //        SharedClass.Logger.Info(string.Format("Staging Poll Thread Not Yet Stopped. ThreadState:{0}", this._pollThread.ThreadState));
+                    //        Thread.Sleep(2000);
+                    //        if (this._pollThread.ThreadState == ThreadState.WaitSleepJoin)
+                    //            this._pollThread.Interrupt();
+                    //    }
+                    //}
                     sqlCommand.Parameters.Clear();
                     sqlCommand.Parameters.Add("@LastRequestId", SqlDbType.BigInt).Value = BulkRequestId.GetLastId(environment);
                     sqlDataAdapter = new SqlDataAdapter();
@@ -291,11 +313,7 @@ namespace VoiceController
                 catch (ThreadInterruptedException ex)
                 {
                     SharedClass.Logger.Error(ex);
-                }
-                if (environment == Environment.STAGING)
-                    _isIamPollingS = false;
-                else
-                    _isIamPollingP = false;
+                }                
             }
         }
 

@@ -578,7 +578,7 @@ namespace VoiceController
                     else
                     {
                         SharedClass.Logger.Info("Dequeued Call of CallId : " + call.QueueTableSlno.ToString() + " Source: " + call.Environment.ToString());
-                        this.WaitForLines();
+                        //this.WaitForLines();
                         
                         if (!this.ShouldIPushCall()) 
                         {
