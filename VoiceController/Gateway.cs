@@ -475,6 +475,7 @@ namespace VoiceController
                                 call.PricePerPulse = float.Parse(dataRow["PricePerPulse"].ToString());
                                 call.PriorityValue = Convert.ToByte(dataRow["Priority"]);
                                 call.IsGroupCall = true;
+                                call.IsSipUser = Convert.ToBoolean(dataRow["IsSipUser"].ToString());
                                 this._callsQueue.EnQueue(call, pollingInput.PriorityMode);
                             }
                             catch (Exception e)
@@ -623,7 +624,7 @@ namespace VoiceController
         }
         public void ProcessCall(Call call)
         {
-            SharedClass.Logger.Info("Processing Call of CallId : " + call.QueueTableSlno.ToString() + " Source: " + call.Environment.ToString());
+            SharedClass.Logger.Info("Processing Call of CallId : " + call.QueueTableSlno.ToString() + " Source: " + call.Environment.ToString() + " IsSipUser : " + call.IsSipUser.ToString());
             HttpWebRequest request = null;
             HttpWebResponse response = null;
             StreamReader streamReader = null;
@@ -634,7 +635,13 @@ namespace VoiceController
                     call.Destination = call.Destination.Substring(this._countryPrefix.Length);
                 if (this._dialPrefix.Length > 0)
                     call.Destination = this._dialPrefix + call.Destination;
-                string payload = "From=" + call.CallerId.UrlEncode() + "&To=" + call.Destination.UrlEncode() + "&OriginationUUID=" + call.UUID.UrlEncode() + "&Gateways=" + this.OriginationUrl.UrlEncode();
+                string payload = "From=" + call.CallerId.UrlEncode() + "&To=" + call.Destination.UrlEncode() + "&OriginationUUID=" + call.UUID.UrlEncode();
+                
+                if(call.IsSipUser)
+                    payload += "&Gateways=" + "user/".UrlEncode();
+                else
+                    payload += "&Gateways=" + this.OriginationUrl.UrlEncode();
+
                 payload += "&SequenceNumber=" + call.CallId + "&AnswerUrl=" + call.AnswerUrl.UrlEncode() + "&HangupUrl=" + ((call.HangupUrl != null && call.HangupUrl.Trim().Length > 0) ? call.HangupUrl : call.AnswerUrl).UrlEncode();
                 //payload += "&CallBackByRMQ=1";
                 payload += "&NotifyCallFlow=RMQ&CallBackByRMQ=1";
@@ -661,6 +668,7 @@ namespace VoiceController
                 payload += "&ActionMethod=POST";
                 //if (call.Xml.Length > 0)
                 //    payload += "&AnswerXml=" + call.Xml.UrlEncode();
+                SharedClass.Logger.Info("Answer XML Validation Starting ");
                 if(call.Xml.Length > 0)
                 {
                     try
@@ -674,7 +682,6 @@ namespace VoiceController
                             foreach (XmlNode node in xmlDoc.SelectNodes("/Response/Dial/Number"))
                             {
                                 tempNumber = node.InnerText;
-
                                 if (!this._isCountryPrefixAllowed && this._countryPrefix.Length > 0 && tempNumber.StartsWith(this._countryPrefix))
                                     tempNumber = tempNumber.Substring(this._countryPrefix.Length);
                                 if (this._dialPrefix.Length > 0)
@@ -701,14 +708,14 @@ namespace VoiceController
                             foreach (string number in xmlDoc.SelectSingleNode("/Response/dial").InnerText.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
                             {
                                 tempNumber = number;
-
                                 if (!this._isCountryPrefixAllowed && this._countryPrefix.Length > 0 && tempNumber.StartsWith(this._countryPrefix))
                                     tempNumber = tempNumber.Substring(this._countryPrefix.Length);
                                 if (this._dialPrefix.Length > 0)
                                     tempNumber = this._dialPrefix + tempNumber;
 
-                                numbersString = numbersString + ",";
+                                numbersString = tempNumber + ",";
                             }
+                            
                             xmlDoc.SelectSingleNode("/Response/dial").InnerText = "";
                             numbersString = numbersString.Substring(0, numbersString.Length - 1);
                             xmlDoc.SelectSingleNode("/Response/dial").InnerText = numbersString;

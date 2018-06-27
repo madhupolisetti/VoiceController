@@ -23,6 +23,7 @@ namespace VoiceController
         private float _pricePerPulse = 0.0f;
         private byte _priorityValue = 0;
         private bool _isGroupCall = false;
+        private bool _isSipUser = false;
         private Environment _environment = Environment.PRODUCTION;
 
         public long QueueTableSlno
@@ -190,6 +191,12 @@ namespace VoiceController
         {
             get { return this._isGroupCall; }
             set { this._isGroupCall = value; }
+        }
+
+        public bool IsSipUser
+        {
+            get { return this._isSipUser; }
+            set { this._isSipUser = value; }
         }
 
         public string PrintMe()

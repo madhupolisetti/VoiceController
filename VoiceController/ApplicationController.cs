@@ -52,7 +52,7 @@ namespace VoiceController
                 this._pollThreadStaging.Name = "BulkPollerStaging";
                 this._pollThreadStaging.Start(Environment.STAGING);
             }
-            this.heartBeatClient = new Client(SharedClass.GetConnectionString(Environment.PRODUCTION),6);
+            this.heartBeatClient = new Client(Convert.ToString(SharedClass.GetConnectionString(Environment.PRODUCTION)), 6);
             this.heartBeatClient.Initialize();
         }
 

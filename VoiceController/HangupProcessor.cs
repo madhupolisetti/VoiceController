@@ -90,26 +90,9 @@ namespace VoiceController
                 if (this.QueueCount() > 0)
                 {
                     this.hangupData = this.DeQueue();
+                    SharedClass.Logger.Info("DeQueue HangUp Data :" + this.hangupData.ToString());
                     if (this.hangupData != null)
                     {
-                        //JToken token;
-                        //if(hangupData.SelectToken("source") != null && hangupData.TryGetValue("source",out token))
-                        //{
-                        //    if (token.ToString().Equals(Environment.STAGING.ToString(), StringComparison.CurrentCultureIgnoreCase))
-                        //        this.ProcessHangupObjStaging();
-                        //    else if (token.ToString().Equals(Environment.PRODUCTION.ToString(), StringComparison.CurrentCultureIgnoreCase))
-                        //        this.ProcessHangupObjProduction();
-                        //    else if (token.ToString().Equals(Environment.STAGINGGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
-                        //        this.ProcessGroupCallHangupObjStaging();
-                        //    else if (token.ToString().Equals(Environment.PRODUCTIONGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
-                        //        this.ProcessGroupCallHangupObjProduction();
-                        //    else
-                        //        this.ProcessHangupObjProduction();
-                        //}
-                        //else
-                        //{
-                        //    this.ProcessHangupObjProduction();
-                        //}
                         this.ProcessHangUpObj();
                     }
                 }
@@ -185,6 +168,7 @@ namespace VoiceController
                     {
                         SharedClass.Logger.Error("Error in updating hanuUpObj: " + this.hangupData.ToString() + " Reason :  " + this.sqlCmd.Parameters["@Message"].Value.ToString());
                     }
+                    
                     this.hangupData = null;
                     break;
                 }
@@ -246,8 +230,6 @@ namespace VoiceController
                 }
             }
         }
-
-
         private void ProcessGroupCallHangupObjProduction()
         {
             this.retryAttempt = 0;
@@ -255,6 +237,7 @@ namespace VoiceController
             {
                 try
                 {
+                    SharedClass.Logger.Info(" hanuUpObj XML Data: " + this.xmlDoc.InnerXml);
                     this.rootElement.Attributes.RemoveAll();
                     //foreach (JProperty jproperty in this.hangupData.Properties())
                     //    this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
@@ -290,9 +273,6 @@ namespace VoiceController
                 }
             }
         }
-
-
-        
 
         public void StartRMQProcessing()
         {
@@ -333,41 +313,6 @@ namespace VoiceController
                             this.hangupData = JObject.Parse(this.message);
 
                             this.ProcessHangUpObj();
-                            //while (true)
-                            //{
-                            //    try
-                            //    {
-                            //        this.rootElement.Attributes.RemoveAll();
-                            //        foreach (JProperty jproperty in ((JObject)this.hangupData.SelectToken("smscresponse")).Properties())
-                            //            this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
-                            //        if (this.sqlCon.State != ConnectionState.Open)
-                            //            this.sqlCon.Open();
-                            //        this.sqlCmd.Parameters.Clear();
-                            //        this.sqlCmd.CommandType = CommandType.StoredProcedure;
-                            //        SharedClass.Logger.Info("Data to db : " + this.xmlDoc.InnerXml);
-                            //        SqlParameterCollection parameters = this.sqlCmd.Parameters;
-                            //        parameters.Add("@Data", SqlDbType.VarChar, -1).Value = this.xmlDoc.InnerXml;
-                            //        parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
-                            //        parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
-                            //        this.sqlCmd.ExecuteNonQuery();
-                            //        this.hangupData = null;
-                            //        break;
-                            //    }
-                            //    catch (Exception ex)
-                            //    {
-                            //        SharedClass.Logger.Error("Error Processing HangupObj : " + ex.ToString());
-                            //        ++this.retryAttempt;
-                            //        if ((int)this.retryAttempt < 3)
-                            //        {
-                            //            SharedClass.Logger.Info("Retry Attempt : " + this.retryAttempt);
-                            //        }
-                            //        else
-                            //        {
-                            //            SharedClass.DumpLogger.Info("Max Retry Attempts Reached. Ignoring Object : " + this.hangupData.ToString());
-                            //            break;
-                            //        }
-                            //    }
-                            //}
                             SharedClass.RabbitMQClient.channel.BasicAck(this.eventArgs.DeliveryTag, false);
                             this.eventArgs = null;
                             break;
@@ -415,8 +360,25 @@ namespace VoiceController
             try
             {
                 JToken token;
-                if (hangupData.SelectToken("source") != null && hangupData.TryGetValue("source", out token))
+                if (hangupData.SelectToken("smscresponse").SelectToken("source") != null)
                 {
+                    token = hangupData.SelectToken("smscresponse").SelectToken("source").ToString();
+                    SharedClass.Logger.Info("source Token: " + token.ToString());
+                    if (token.ToString().Equals(Environment.STAGING.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.ProcessHangupObjStaging();
+                    else if (token.ToString().Equals(Environment.PRODUCTION.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.ProcessHangupObjProduction();
+                    else if (token.ToString().Equals(Environment.STAGINGGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.ProcessGroupCallHangupObjStaging();
+                    else if (token.ToString().Equals(Environment.PRODUCTIONGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.ProcessGroupCallHangupObjProduction();
+                    else
+                        this.ProcessHangupObjProduction();
+                }
+                else if (hangupData.SelectToken("smscresponse").SelectToken("Source") != null)
+                {
+                    token = hangupData.SelectToken("smscresponse").SelectToken("Source").ToString();
+                    SharedClass.Logger.Info("Source Token: " + token.ToString());
                     if (token.ToString().Equals(Environment.STAGING.ToString(), StringComparison.CurrentCultureIgnoreCase))
                         this.ProcessHangupObjStaging();
                     else if (token.ToString().Equals(Environment.PRODUCTION.ToString(), StringComparison.CurrentCultureIgnoreCase))
@@ -430,6 +392,7 @@ namespace VoiceController
                 }
                 else
                 {
+                    SharedClass.Logger.Info("Source Token: " );
                     this.ProcessHangupObjProduction();
                 }
             }

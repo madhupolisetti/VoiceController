@@ -582,6 +582,20 @@ namespace VoiceController
                     else
                         this.InsertCallBackProduction();
                 }
+                else if (_callBackObject.SelectToken("Source") != null && _callBackObject.TryGetValue("Source", out token))
+                {
+                    SharedClass.Logger.Info("Environment : " + token.ToString());
+                    if (Convert.ToString(token).Equals(Environment.PRODUCTION.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.InsertCallBackProduction();
+                    else if (Convert.ToString(token).Equals(Environment.STAGING.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.InsertCallBackStaging();
+                    else if (token.ToString().Equals(Environment.STAGINGGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.InsertGroupCallBacksStaging();
+                    else if (token.ToString().Equals(Environment.PRODUCTIONGROUPCALL.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                        this.InsertGroupCallBacksProduction();
+                    else
+                        this.InsertCallBackProduction();
+                }
                 else
                 {
                     this.InsertCallBackProduction();
@@ -599,8 +613,8 @@ namespace VoiceController
                 _groupCallBacksSqlCommandProduction.Parameters.Add("@CallId", SqlDbType.BigInt).Value = _callBackObject.SelectToken("sequencenumber") == null ? 0 : Convert.ToInt64(_callBackObject.SelectToken("sequencenumber").ToString());
                 _groupCallBacksSqlCommandProduction.Parameters.Add("@ConferenceAction", SqlDbType.VarChar, 100).Value = _callBackObject.SelectToken("ConferenceAction") == null ? "" : _callBackObject.SelectToken("ConferenceAction").ToString();
                 _groupCallBacksSqlCommandProduction.Parameters.Add("@CallStatus", SqlDbType.VarChar, 200).Value = _callBackObject.SelectToken("callstatus") == null ? "" : _callBackObject.SelectToken("callstatus").ToString();
-                if (_callBackObject.SelectToken("ConferenceMemberID") != null && !(_callBackObject.SelectToken("ConferenceMemberID").Equals(System.DBNull.Value)))
-                    _groupCallBacksSqlCommandProduction.Parameters.Add("@MemberIdInNode", SqlDbType.BigInt).Value = Convert.ToInt64(_callBackObject.SelectToken("ConferenceMemberID").ToString());
+                if (_callBackObject.SelectToken("ConfInstanceMemberID") != null && !(_callBackObject.SelectToken("ConfInstanceMemberID").Equals(System.DBNull.Value)))
+                    _groupCallBacksSqlCommandProduction.Parameters.Add("@MemberIdInNode", SqlDbType.BigInt).Value = Convert.ToInt64(_callBackObject.SelectToken("ConfInstanceMemberID").ToString());
                 else
                     _groupCallBacksSqlCommandProduction.Parameters.Add("@MemberIdInNode", SqlDbType.BigInt).Value = 0;
 
