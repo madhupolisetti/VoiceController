@@ -270,17 +270,6 @@ namespace VoiceController
                 SharedClass._hangupProcessor = value;
             }
         }
-        public static bool IsHangupLazyProcessorRunning
-        {
-            get
-            {
-                return SharedClass._isHangupLazyProcessorRunning;
-            }
-            set
-            {
-                SharedClass._isHangupLazyProcessorRunning = value;
-            }
-        }
         public static byte HangupProcessorsCount
         {
             get {

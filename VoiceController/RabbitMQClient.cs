@@ -33,11 +33,11 @@ namespace VoiceController
         public QueueingBasicConsumer hangupConsumer = null;
         public QueueingBasicConsumer callFlowsConsumer = null;
         public QueueingBasicConsumer callBacksConsumer = null;
-        public QueueingBasicConsumer hangupLazyConsumer = null;
+        //public QueueingBasicConsumer hangupLazyConsumer = null;
         public string hangupConsumerTag = null;
         public string callFlowsConsumerTag = null;
         public string callBacksConsumerTag = null;
-        public string hangupLazyConsumerTag = null;
+        //public string hangupLazyConsumerTag = null;
         public IBasicProperties channelProperties = null;
         
         #region CALLFLOW_VARIABLES
@@ -127,7 +127,6 @@ namespace VoiceController
             this._callBacksDeQueueThread.Start();
             
         }
-
         public void Stop()
         {
             try
@@ -144,7 +143,7 @@ namespace VoiceController
                 this.channel = null;
                 this.channelProperties = null;
                 this.hangupConsumer = null;
-                this.hangupLazyConsumer = null;
+                //this.hangupLazyConsumer = null;
                 this.callFlowsConsumer = null;
                 if (this._hangupDeQueueThread.ThreadState == ThreadState.WaitSleepJoin)
                     this._hangupDeQueueThread.Interrupt();
@@ -160,7 +159,6 @@ namespace VoiceController
                 SharedClass.RabbitMQClient = null;
             }
         }
-
         public void ConnectToServer()
         {
             int millisecondsTimeout = 3000;
@@ -200,12 +198,12 @@ namespace VoiceController
                         this.callBacksConsumer = new QueueingBasicConsumer(this.channel);
                         this.callBacksConsumerTag = this.channel.BasicConsume("CallBacks", false, this.callBacksConsumer);
                         SharedClass.Logger.Info("CallBacks Queue Consumer Created, ConsumerTag : " + this.callBacksConsumerTag);
-                        if (!SharedClass.IsHangupProcessInMemory)
-                        {
-                            this.hangupLazyConsumer = new QueueingBasicConsumer(this.channel);
-                            this.hangupLazyConsumerTag = this.channel.BasicConsume("HangupData", false, (IBasicConsumer)this.hangupLazyConsumer);
-                            SharedClass.Logger.Info("HangupLazzy Queue Consumer Created, ConsumerTag : " + this.hangupLazyConsumerTag);
-                        }
+                        //if (!SharedClass.IsHangupProcessInMemory)
+                        //{
+                        //    this.hangupLazyConsumer = new QueueingBasicConsumer(this.channel);
+                        //    this.hangupLazyConsumerTag = this.channel.BasicConsume("HangupData", false, (IBasicConsumer)this.hangupLazyConsumer);
+                        //    SharedClass.Logger.Info("HangupLazzy Queue Consumer Created, ConsumerTag : " + this.hangupLazyConsumerTag);
+                        //}
                         SharedClass.Logger.Info("Connected To RabbitMQ Succesfully");
                         this._isConnected = true;
                         this._isConnectSignalInProgress = false;
@@ -232,7 +230,6 @@ namespace VoiceController
                     SharedClass.Logger.Info("RMQConnector Exited From While Loop With IsPoll False. No More Connection Tries Will Happen");
             }
         }
-
         public void DeQueueHangups()
         {
             while (!this._isConnected && !SharedClass.HasStopSignal)
@@ -361,7 +358,6 @@ namespace VoiceController
                 SharedClass.Notifier.SendSms("Hangup Subscriber Stopped WithOut Service Stop Signal");
             }
         }
-
         public void DeQueueCallFlows()
         {
             while (!this.IsConnected && !SharedClass.HasStopSignal)
@@ -432,7 +428,6 @@ namespace VoiceController
                     SharedClass.Notifier.SendSms("CallFlows Thread Stopped with out receiving Service Stop Signal");
             }
         }
-
         private void DeQueueCallBacks()
         {
             while(!this.IsConnected && !SharedClass.HasStopSignal)
@@ -544,8 +539,6 @@ namespace VoiceController
                 }
             }
         }
-
-
         private void CreateCallBacks(string callData)
         {
             try
@@ -606,8 +599,6 @@ namespace VoiceController
                 }
             }
         }
-
-        
         private void InsertGroupCallBacksProduction()
         {
             SharedClass.Logger.Info("Creating Call Back For Production :" + _callBackObject.ToString());
@@ -678,7 +669,6 @@ namespace VoiceController
                 SharedClass.Logger.Error("Exception whil processing CallBack : " + _callBackObject.ToString() + ", Reason : " + e.ToString());
             }
         }
-
         private void InsertGroupCallBacksStaging()
         {
             try
@@ -703,7 +693,6 @@ namespace VoiceController
                 SharedClass.Logger.Error("Exception whil processing CallBack : " + _callBackObject.ToString() + ", Reason : " + e.ToString());
             }
         }
-
         private void InsertCallBackProduction()
         {
             try
@@ -730,7 +719,6 @@ namespace VoiceController
                 SharedClass.Logger.Error("Exception whil processing CallBack : " + _callBackObject.ToString() + ", Reason : " + e.ToString());
             }
         }
-
         private void InsertCallBackStaging()
         {
             try
@@ -757,7 +745,6 @@ namespace VoiceController
                 SharedClass.Logger.Error("Exception whil processing CallBack : " + _callBackObject.ToString() + ", Reason : " + e.ToString());
             }
         }
-
         private void InsertCallFlowStaging()
         {
             try
@@ -794,7 +781,6 @@ namespace VoiceController
                 SharedClass.Logger.Error("Exception whil processing CallFlow : " + _callFlowObject.ToString() + ", Reason : " + e.ToString());
             }
         }
-
         private void InsertCallFlowProduction()
         {
             try
@@ -831,7 +817,6 @@ namespace VoiceController
                 SharedClass.Logger.Error("Exception whil processing CallFlow : " + _callFlowObject.ToString() + ", Reason : " + e.ToString());
             }
         }
-
         private void InsertGroupCallFlowProduction()
         {
             try
@@ -867,7 +852,6 @@ namespace VoiceController
                 SharedClass.Logger.Error("Exception whil processing CallFlow : " + _callFlowObject.ToString() + ", Reason : " + e.ToString());
             }
         }
-
         private void InsertGroupCallFlowStaging()
         {
             try
@@ -904,17 +888,13 @@ namespace VoiceController
                 SharedClass.Logger.Error("Exception whil processing CallFlow : " + _callFlowObject.ToString() + ", Reason : " + e.ToString());
             }
         }
-
-        internal void DeQueueHangupData(int timeOutMilliSeconds, out BasicDeliverEventArgs args)
-        {
-            lock(this.hangupLazyConsumer)
-            {
-                this.hangupLazyConsumer.Queue.Dequeue(timeOutMilliSeconds, out args);
-            }
-        }
-
-
-
+        //internal void DeQueueHangupData(int timeOutMilliSeconds, out BasicDeliverEventArgs args)
+        //{
+        //    lock(this.hangupLazyConsumer)
+        //    {
+        //        this.hangupLazyConsumer.Queue.Dequeue(timeOutMilliSeconds, out args);
+        //    }
+        //}
         private void EnQueue(string queueName, string message)
         {
         retryLabel:

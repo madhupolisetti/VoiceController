@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json.Linq;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System;
 using System.Collections.Generic;
@@ -30,6 +31,8 @@ namespace VoiceController
         private XmlElement rootElement = null;
         private byte retryAttempt = 0;
         private byte _processedCount = 0;
+        QueueingBasicConsumer _consumer = null;
+        string _consumerTag = string.Empty;
 
         public bool IsRunning
         {
@@ -72,6 +75,7 @@ namespace VoiceController
                 SharedClass.Logger.Info("HangupProcesser Not Yet Stopped");
                 Thread.Sleep(1000);
             }
+            this._consumer = null;
             if (!SharedClass.IsHangupProcessInMemory || this.QueueCount() <= 0)
                 return;
             //SharedClass.Logger.Info("Dumping " + (object)this.QueueCount() + " Hangup Objects Into DumpLog");
@@ -79,7 +83,7 @@ namespace VoiceController
             //    SharedClass.Logger.Info((object)("HangupObject : " + this.DeQueue().ToString()));
             //SharedClass.Logger.Info((object)"Dumping Done");
 
-            //This process has to deal with Serialization of Queue.
+            //This process has to deal with Serialization of In-Memory Queue.
         }
         private void StartInMemoryProcessing()
         {
@@ -276,11 +280,29 @@ namespace VoiceController
             }
         }
         public void StartRMQProcessing()
-        {
+        {   
             while (!SharedClass.RabbitMQClient.IsConnected && !SharedClass.HasStopSignal)
             {
                 SharedClass.Logger.Info("Waiting For Connect Signal");
                 Thread.Sleep(5000);
+            }
+            try
+            {
+                SharedClass.Logger.Info("Preparing the Consumer");
+                lock (SharedClass.RabbitMQClient.channel)
+                {
+                    _consumer = new QueueingBasicConsumer(SharedClass.RabbitMQClient.channel);
+                    _consumerTag = SharedClass.RabbitMQClient.channel.BasicConsume("HangupData", false, _consumer);
+                }
+                if(_consumerTag.Length > 0)
+                {
+                    SharedClass.Logger.Info("Consumer Created, Tag: " + _consumerTag);
+                }
+            }
+            catch(Exception e)
+            {
+                SharedClass.Logger.Error(e.ToString());
+                return;
             }
             SharedClass.Logger.Info("Started DeQueuing");
             this.isIamRunning = true;
@@ -296,18 +318,19 @@ namespace VoiceController
                             SharedClass.Logger.Info("RMQClient Is Nothing");
                             Thread.Sleep(10000);
                         }
-                        while (SharedClass.RabbitMQClient.hangupLazyConsumer == null)
-                        {
-                            SharedClass.Logger.Info("HangupDataConsumer Is Nothing");
-                            Thread.Sleep(10000);
-                        }
-                        while (SharedClass.RabbitMQClient.hangupLazyConsumer.Queue == null)
-                        {
-                            SharedClass.Logger.Info("HangupDataConsumer Queue Is Nothing");
-                            Thread.Sleep(10000);
-                        }
-                        //SharedClass.RabbitMQClient.hangupLazyConsumer.Queue.Dequeue(5000, out this.eventArgs);
-                        SharedClass.RabbitMQClient.DeQueueHangupData(5000, out this.eventArgs);
+                        //while (SharedClass.RabbitMQClient.hangupLazyConsumer == null)
+                        //{
+                        //    SharedClass.Logger.Info("HangupDataConsumer Is Nothing");
+                        //    Thread.Sleep(10000);
+                        //}
+                        //while (SharedClass.RabbitMQClient.hangupLazyConsumer.Queue == null)
+                        //{
+                        //    SharedClass.Logger.Info("HangupDataConsumer Queue Is Nothing");
+                        //    Thread.Sleep(10000);
+                        //}
+                        ////SharedClass.RabbitMQClient.hangupLazyConsumer.Queue.Dequeue(5000, out this.eventArgs);
+                        //SharedClass.RabbitMQClient.DeQueueHangupData(5000, out this.eventArgs);
+                        _consumer.Queue.Dequeue(5000, out this.eventArgs);
                         if (this.eventArgs != null)
                         {
                             this.retryAttempt = 0;
