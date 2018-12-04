@@ -52,7 +52,12 @@ namespace VoiceController
                 SetSlno(gatewayId, environment, priorityMode, slno);
             return slno;
         }
-
-
+        public static Dictionary<int, Dictionary<Environment, Dictionary<Priority.PriorityMode, long>>> GetList
+        {
+            get
+            {
+                return _gatewayEnvironmentPriorityModeSlnoDictionary;
+            }
+        }
     }
 }

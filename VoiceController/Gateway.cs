@@ -144,7 +144,7 @@ namespace VoiceController
 
         public void Stop()
         {
-            SharedClass.Logger.Info("Stopping");
+            SharedClass.Logger.Info("Stopping Gateway " + this._name);
             this._shouldIPoll = false;
             this._shouldIProcess = false;
             Thread.Sleep(500);
@@ -155,27 +155,31 @@ namespace VoiceController
                 {
                     this._pushThreads[index].Interrupt();
                     SharedClass.Logger.Info("PushThread : " + this._pushThreads[index].Name + " Is Running, ThreadState : " + this._pushThreads[index].ThreadState.ToString());
-                    Thread.Sleep(2000);
+                    Thread.Sleep(1000);
                 }                
-                Thread.Sleep(2000);
+                Thread.Sleep(1000);
             }
             while (this._pushThreadsRunning > 0) {
                 SharedClass.Logger.Info("Still " + this._pushThreadsRunning + " Push Threads Running");
-                Thread.Sleep(2000);
+                Thread.Sleep(1000);
             }
             while (this._pollThreadsRunning > 0) {
                 SharedClass.Logger.Info("Still " + this._pollThreadsRunning + " Pollers Running");
-                Thread.Sleep(2000);
+                Thread.Sleep(1000);
             }
             UpdateLastProcessedSlno();
             try
             {
-                SharedClass.Logger.Info("Serializing Queue. UpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.Urgent) + ", HpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.High) + ", MpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.Medium) + ", LpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.Low));
-                System.Runtime.Serialization.IFormatter formatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                Stream stream = new FileStream(this._name + ".ser", FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
-                formatter.Serialize(stream, this._callsQueue);
-                stream.Close();
-                SharedClass.Logger.Info("Queue Serialization Successful");
+                //if(this._callsQueue.QueueCount(Priority.PriorityMode.Urgent) > 0 || this._callsQueue.QueueCount(Priority.PriorityMode.High) > 0
+                //    || this._callsQueue.QueueCount(Priority.PriorityMode.Medium) > 0 || this._callsQueue.QueueCount(Priority.PriorityMode.Low) > 0)
+                //{
+                    SharedClass.Logger.Info("Serializing Queue. UpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.Urgent) + ", HpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.High) + ", MpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.Medium) + ", LpQ : " + this._callsQueue.QueueCount(Priority.PriorityMode.Low));
+                    System.Runtime.Serialization.IFormatter formatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+                    Stream stream = new FileStream(this._name + ".ser", FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+                    formatter.Serialize(stream, this._callsQueue);
+                    stream.Close();
+                    SharedClass.Logger.Info("Queue Serialization Successful");
+                //}
             }
             catch (Exception e) {
                 SharedClass.Logger.Error("Error Serializing Queue : " + e.ToString());
@@ -225,20 +229,22 @@ namespace VoiceController
 
         private void UpdateLastProcessedSlno()
         {
+            SharedClass.Logger.Info("Updating Last Slnos");
             SqlConnection sqlCon = (SqlConnection)null;
             SqlCommand sqlCmd = (SqlCommand)null;
             try
             {
                 sqlCon = new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION));
                 sqlCmd = new SqlCommand("Update VoiceGateways With(Rowlock) Set UPQLastSlno = @UPQLastSlno, HPQLastSlno = @HPQLastSlno, MPQLastSlno = @MPQLastSlno , LPQLastSlno = @LPQLastSlno Where ID = @GatewayId",sqlCon);
+                sqlCmd.Parameters.Add("@UPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.PRODUCTION, Priority.PriorityMode.Urgent);
                 sqlCmd.Parameters.Add("@HPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.PRODUCTION, Priority.PriorityMode.High);
                 sqlCmd.Parameters.Add("@MPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.PRODUCTION, Priority.PriorityMode.Medium);
                 sqlCmd.Parameters.Add("@LPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.PRODUCTION, Priority.PriorityMode.Low);
-                sqlCmd.Parameters.Add("@UPQLastSlno", SqlDbType.BigInt).Value = CallsQueueSlno.GetSlno(this.Id, Environment.PRODUCTION, Priority.PriorityMode.Urgent);
                 sqlCmd.Parameters.Add("@GatewayId", SqlDbType.Int).Value = this.Id;
                 sqlCon.Open();
                 sqlCmd.ExecuteNonQuery();
                 sqlCon.Close();
+                SharedClass.Logger.Info("Updating Last Slnos Done");
             }
             catch(Exception ex)
             {
@@ -341,6 +347,7 @@ namespace VoiceController
                                 call.Pulse = Convert.ToByte(dataRow["Pulse"]);
                                 call.PricePerPulse = float.Parse(dataRow["PricePerPulse"].ToString());
                                 call.PriorityValue = Convert.ToByte(dataRow["Priority"]);
+                                call.Priority = pollingInput.PriorityMode;
                                 this._callsQueue.EnQueue(call, pollingInput.PriorityMode);
                             }
                             catch (Exception e)
@@ -662,7 +669,34 @@ namespace VoiceController
                         payload += "&Source=" + Environment.PRODUCTION.ToString();
                     //payload += "&Source=" + Environment.PRODUCTION.ToString();
                 }
-                    
+                #region Priority Setting For YCOM
+                if(call.IsGroupCall)
+                {
+                    payload += "&Priority=H";
+                }
+                else
+                {
+                    switch(call.Priority)
+                    {
+                        case Priority.PriorityMode.Urgent:
+                            payload += "&Priority=H";
+                            break;
+                        case Priority.PriorityMode.High:
+                            payload += "&Priority=H";
+                            break;
+                        case Priority.PriorityMode.Medium:
+                            payload += "&Priority=M";
+                            break;
+                        case Priority.PriorityMode.Low:
+                            payload += "&Priority=L";
+                            break;
+                        default:
+                            payload += "&Priority=L";
+                            break;
+                    }
+                }
+                #endregion
+
                 if (call.RingUrl.Length > 0)
                     payload = payload + "&RingUrl=" + call.RingUrl.UrlEncode();
                 payload += "&ActionMethod=POST";
@@ -863,10 +897,10 @@ namespace VoiceController
         public string DialPrefix { get { return _dialPrefix; } set { _dialPrefix = value; } }
         public byte StartingHour { get { return this._startingHour; } set { this._startingHour = value; } }
         public byte StoppingHour { get { return this._stoppingHour; } set { this._stoppingHour = value; } }
-        public long UrgentPriorityQueueLastSlno { get { return this._urgentPriorityQueueLastSlno; } set { this._urgentPriorityQueueLastSlno = value; } }
-        public long HighPriorityQueueLastSlno { get { return this._highPriorityQueueLastSlno; } set { this._highPriorityQueueLastSlno = value; } }
-        public long MediumPriorityQueueLastSlno { get { return this._mediumPriorityQueueLastSlno; } set { this._mediumPriorityQueueLastSlno = value; } }
-        public long LowPriorityQueueLastSlno { get { return this._lowPriorityQueueLastSlno; } set { this._lowPriorityQueueLastSlno = value; } }
+        //public long UrgentPriorityQueueLastSlno { get { return this._urgentPriorityQueueLastSlno; } set { this._urgentPriorityQueueLastSlno = value; } }
+        //public long HighPriorityQueueLastSlno { get { return this._highPriorityQueueLastSlno; } set { this._highPriorityQueueLastSlno = value; } }
+        //public long MediumPriorityQueueLastSlno { get { return this._mediumPriorityQueueLastSlno; } set { this._mediumPriorityQueueLastSlno = value; } }
+        //public long LowPriorityQueueLastSlno { get { return this._lowPriorityQueueLastSlno; } set { this._lowPriorityQueueLastSlno = value; } }
         public byte NumberOfPushThreads { get { return this._numberOfPushThreads; } set { this._numberOfPushThreads = value; } } 
         public byte PushThreadsRunning { get { return this._pushThreadsRunning; } set { this._pushThreadsRunning = value; } }
         #endregion

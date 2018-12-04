@@ -130,6 +130,7 @@ namespace VoiceController
             return Convert.ToInt64((DateTime.Now - new DateTime(1970, 1, 1)).TotalMilliseconds);
         }
         #endregion        
+
         #region PROPERTIES
         //public static string ConnectionString
         //{
@@ -278,6 +279,12 @@ namespace VoiceController
             set
             {
                 SharedClass._isHangupLazyProcessorRunning = value;
+            }
+        }
+        public static byte HangupProcessorsCount
+        {
+            get {
+                return System.Configuration.ConfigurationManager.AppSettings["HangupProcessorsCount"] == null ? Convert.ToByte(1) : Convert.ToByte(System.Configuration.ConfigurationManager.AppSettings["HangupProcessorsCount"].ToString());
             }
         }
         public static Dictionary<int, Gateway> GatewayMap

@@ -17,12 +17,13 @@ namespace VoiceController
         private Thread _pollThread = null;
         private Thread _pollThreadStaging = null;
         private Client heartBeatClient = null;
+        private List<HangupProcessor> _hangupProcessors = new List<HangupProcessor>();
+        private Thread _slnosLogTrhead = null;
 
         public ApplicationController()
         {
             this.LoadConfig();
         }
-
         public void Start()
         {
             SharedClass.IsServiceCleaned = false;
@@ -31,12 +32,18 @@ namespace VoiceController
             {
                 SharedClass.Logger.Info("Starting RabbitMQ Client");
                 SharedClass.RabbitMQClient.Start();
+                for(byte iterator = 1; iterator <= SharedClass.HangupProcessorsCount; iterator++)
+                {
+                    HangupProcessor p = new HangupProcessor();
+                    this._hangupProcessors.Add(p);
+                    p.Start(iterator);
+                }
             }
-            if (SharedClass.HangupProcessor != null)
-            {
-                SharedClass.Logger.Info("Starting Hangup Processor");
-                SharedClass.HangupProcessor.Start();
-            }
+            //if (SharedClass.HangupProcessor != null)
+            //{
+            //    SharedClass.Logger.Info("Starting Hangup Processor");
+            //    SharedClass.HangupProcessor.Start();
+            //}
             if (SharedClass.Listener.Ip.Length > 7 && SharedClass.Listener.Port > 0)
             {
                 SharedClass.Logger.Info("Starting Listener");
@@ -54,8 +61,10 @@ namespace VoiceController
             }
             this.heartBeatClient = new Client(Convert.ToString(SharedClass.GetConnectionString(Environment.PRODUCTION)), 6);
             this.heartBeatClient.Initialize();
+            this._slnosLogTrhead = new Thread(new ThreadStart(this.LogLastSlnos));
+            this._slnosLogTrhead.Name = "SlnoLogger";
+            this._slnosLogTrhead.Start();
         }
-
         public void Stop()
         {
             this.heartBeatClient.Stop();
@@ -67,14 +76,21 @@ namespace VoiceController
                     this._pollThread.Interrupt();
                 Thread.Sleep(1000);
             }
-            while (this._pollThreadStaging.ThreadState != ThreadState.Stopped)
+            if(this._pollThreadStaging != null)
             {
-                SharedClass.Logger.Info("DbPoller Is Still Running, Thread State : " + this._pollThreadStaging.ThreadState.ToString());
-                if (this._pollThreadStaging.ThreadState == ThreadState.WaitSleepJoin)
-                    this._pollThreadStaging.Interrupt();
-                Thread.Sleep(1000);
+                while (this._pollThreadStaging.ThreadState != ThreadState.Stopped)
+                {
+                    SharedClass.Logger.Info("DbPoller Is Still Running, Thread State : " + this._pollThreadStaging.ThreadState.ToString());
+                    if (this._pollThreadStaging.ThreadState == ThreadState.WaitSleepJoin)
+                        this._pollThreadStaging.Interrupt();
+                    Thread.Sleep(1000);
+                }
             }
-
+            if (this._hangupProcessors.Count > 0)
+            {
+                for (byte iterator = 0; iterator < this._hangupProcessors.Count; iterator++)
+                    this._hangupProcessors[iterator].Stop();
+            }
             if (SharedClass.RabbitMQClient != null) {
                 SharedClass.Logger.Info("Stopping RabbitMQ Client");
                 SharedClass.RabbitMQClient.Stop();
@@ -89,10 +105,10 @@ namespace VoiceController
                 SharedClass.Logger.Info("CallFlows Subscriber Not Yet Stopped");
                 Thread.Sleep(1000);
             }
-            if (SharedClass.HangupProcessor != null) {
-                SharedClass.Logger.Info("Stopping HangupProcessor");
-                SharedClass.HangupProcessor.Stop();
-            }
+            //if (SharedClass.HangupProcessor != null) {
+            //    SharedClass.Logger.Info("Stopping HangupProcessor");
+            //    SharedClass.HangupProcessor.Stop();
+            //}
             while(SharedClass.ActiveAccountProcessors.Count > 0)
             {
                 try
@@ -145,9 +161,15 @@ namespace VoiceController
                 SharedClass.Logger.Info("Stopping Listener");
                 SharedClass.Listener.Destroy();
             }
+            while (this._slnosLogTrhead.ThreadState != ThreadState.Stopped)
+            {
+                SharedClass.Logger.Info("SlnoLogger Is Still Running, Thread State : " + this._slnosLogTrhead.ThreadState.ToString());
+                if (this._slnosLogTrhead.ThreadState == ThreadState.WaitSleepJoin)
+                    this._slnosLogTrhead.Interrupt();
+                Thread.Sleep(1000);
+            }
             SharedClass.IsServiceCleaned = true;
         }
-
         public void StartDbPoll(object input)
         {
             Environment environment = (Environment)input;            
@@ -316,7 +338,6 @@ namespace VoiceController
                 }                
             }
         }
-
         private void SetLastQueuedSlno()
         {
             SharedClass.Logger.Info("Getting Last Queued Slno's");
@@ -368,7 +389,6 @@ namespace VoiceController
 
             
         }
-
         public void LoadGateways()
         {
             SharedClass.Logger.Info("Fetching Gateways List From Database");
@@ -420,11 +440,15 @@ namespace VoiceController
                             {
                                 long tempLong = 0;
                                 if (long.TryParse(dataRow["UrgentPriorityQueueLastSlno"].ToString(), out tempLong))
-                                    gateway.UrgentPriorityQueueLastSlno = tempLong;
+                                    //gateway.UrgentPriorityQueueLastSlno = tempLong;
+                                    CallsQueueSlno.SetSlno(gateway.Id, Environment.PRODUCTION, Priority.PriorityMode.Urgent, tempLong);
                             }
-                            gateway.HighPriorityQueueLastSlno = Convert.ToInt64(dataRow["HighPriorityQueueLastSlno"]);
-                            gateway.MediumPriorityQueueLastSlno = Convert.ToInt64(dataRow["MediumPriorityQueueLastSlno"]);
-                            gateway.LowPriorityQueueLastSlno = Convert.ToInt64(dataRow["LowPriorityQueueLastSlno"]);
+                            //gateway.HighPriorityQueueLastSlno = Convert.ToInt64(dataRow["HighPriorityQueueLastSlno"]);
+                            CallsQueueSlno.SetSlno(gateway.Id, Environment.PRODUCTION, Priority.PriorityMode.High, Convert.ToInt64(dataRow["HighPriorityQueueLastSlno"]));
+                            //gateway.MediumPriorityQueueLastSlno = Convert.ToInt64(dataRow["MediumPriorityQueueLastSlno"]);
+                            CallsQueueSlno.SetSlno(gateway.Id, Environment.PRODUCTION, Priority.PriorityMode.Medium, Convert.ToInt64(dataRow["MediumPriorityQueueLastSlno"]));
+                            //gateway.LowPriorityQueueLastSlno = Convert.ToInt64(dataRow["LowPriorityQueueLastSlno"]);
+                            CallsQueueSlno.SetSlno(gateway.Id, Environment.PRODUCTION, Priority.PriorityMode.Low, Convert.ToInt64(dataRow["LowPriorityQueueLastSlno"]));
                             gateway.NumberOfPushThreads = Convert.ToByte(dataRow["PushThreadsTotal"]);
                             gatewayThread = new Thread(new ThreadStart(gateway.Start));                            
                             gatewayThread.Name = gateway.Name.Replace(" ", "");
@@ -446,9 +470,6 @@ namespace VoiceController
                 SharedClass.Logger.Error("Error Getting Gateways List, Reason : " + ex.ToString());
             }
         }
-
-        
-
         private void LoadConfig()
         {
             try
@@ -520,7 +541,7 @@ namespace VoiceController
                 if (ConfigurationManager.AppSettings["RabbitMQHost"] != null)
                 {
                     SharedClass.RabbitMQClient = new RabbitMQClient();
-                    SharedClass.HangupProcessor = new HangupProcessor();
+                    //SharedClass.HangupProcessor = new HangupProcessor();
                     SharedClass.RabbitMQClient.Host = ConfigurationManager.AppSettings["RabbitMQHost"].Trim();
                     SharedClass.Logger.Info(string.Format("Setting RabbitMQHost To {0}", SharedClass.RabbitMQClient.Host));
                     if (ConfigurationManager.AppSettings["RabbitMQPort"] != null)
@@ -577,6 +598,41 @@ namespace VoiceController
                 throw new ConfigurationException("Unable to load configuration from file. Please checck application log file for exception details");
             }
             
+        }
+        private void LogLastSlnos()
+        {
+            SharedClass.DumpLogger.Info("Started");
+            Dictionary<int, Dictionary<Environment, Dictionary<Priority.PriorityMode, long>>> slnosDictionary = null;
+            string slnosString = string.Empty;
+            while(!SharedClass.HasStopSignal)
+            {
+                slnosDictionary = CallsQueueSlno.GetList;
+                foreach(KeyValuePair<int, Dictionary<Environment, Dictionary<Priority.PriorityMode, long>>> gateway in slnosDictionary)
+                {
+                    foreach(KeyValuePair<Environment, Dictionary<Priority.PriorityMode, long>> environment in gateway.Value)
+                    {
+                        slnosString = string.Empty;
+                        foreach(KeyValuePair<Priority.PriorityMode, long> priority in environment.Value)
+                        {
+                            slnosString += string.Format("{0}: {1} | ", priority.Key.ToString(), priority.Value);
+                        }
+                        SharedClass.DumpLogger.Info(string.Format("GatewayId: {0}, Environment: {1}, Slnos: {2}", gateway.Key, environment.Key, slnosString));
+                    }
+                }
+                try
+                {
+                    Thread.Sleep(60000);
+                }
+                catch(ThreadAbortException e)
+                {
+
+                }
+                catch(ThreadInterruptedException e)
+                {
+
+                }
+            }
+            SharedClass.DumpLogger.Info("Exit");
         }
     }
 }

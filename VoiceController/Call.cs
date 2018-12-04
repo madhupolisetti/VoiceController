@@ -25,6 +25,7 @@ namespace VoiceController
         private bool _isGroupCall = false;
         private bool _isSipUser = false;
         private Environment _environment = Environment.PRODUCTION;
+        private Priority.PriorityMode _priority;
 
         public long QueueTableSlno
         {
@@ -203,5 +204,6 @@ namespace VoiceController
         {
             return " QueueTableSlno : " + this.QueueTableSlno.ToString() + ", Environment : " + this._environment.ToString() + ", MobileId : " + this.CallId.ToString() + ", Destination : " + this.Destination + ", CallerId : " + this.CallerId + ", IsGroupCall : " +  this.IsGroupCall.ToString();
         }
+        internal Priority.PriorityMode Priority { get { return this._priority; } set { this._priority = value; } }
     }
 }

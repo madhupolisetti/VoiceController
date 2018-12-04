@@ -10,6 +10,8 @@ using System.Threading;
 using System.IO;
 using System.Data;
 using System.Data.SqlClient;
+using System.Net;
+using System.Web;
 
 namespace VoiceController
 {
@@ -505,15 +507,15 @@ namespace VoiceController
         private void CreateCallFlow(string callData)
         {
             SharedClass.Logger.Info("CallFlow Obj is :" + callData);
-            try
-            {
-                _callFlowObject = null;
-                _callFlowObject = JObject.Parse((JObject.Parse(callData)).SelectToken("smscresponse").ToString());
-            }
-            catch (Exception e)
-            {
-                SharedClass.Logger.Error("Exception whil processing CallFlow (Message Parsing Failed) : " + callData + ", Reason : " + e.ToString());
-            }
+            //try
+            //{
+            //    _callFlowObject = null;
+            //    _callFlowObject = JObject.Parse((JObject.Parse(callData)).SelectToken("smscresponse").ToString());
+            //}
+            //catch (Exception e)
+            //{
+            //    SharedClass.Logger.Error("Exception whil processing CallFlow (Message Parsing Failed) : " + callData + ", Reason : " + e.ToString());
+            //}
             if (_callFlowObject != null)
             {   
                 _eventName = _callFlowObject.SelectToken("event").ToString();
@@ -548,8 +550,10 @@ namespace VoiceController
         {
             try
             {
+
                 _callBackObject = new JObject();
                 _callBackObject = JObject.Parse((JObject.Parse(callData)).SelectToken("smscresponse").ToString());
+
             }
             catch (Exception e)
             {
@@ -607,6 +611,8 @@ namespace VoiceController
         private void InsertGroupCallBacksProduction()
         {
             SharedClass.Logger.Info("Creating Call Back For Production :" + _callBackObject.ToString());
+            string callbackUrl = "";
+            JObject postData = null;
             try
             {
                 _groupCallBacksSqlCommandProduction.Parameters.Clear();
@@ -617,14 +623,55 @@ namespace VoiceController
                     _groupCallBacksSqlCommandProduction.Parameters.Add("@MemberIdInNode", SqlDbType.BigInt).Value = Convert.ToInt64(_callBackObject.SelectToken("ConfInstanceMemberID").ToString());
                 else
                     _groupCallBacksSqlCommandProduction.Parameters.Add("@MemberIdInNode", SqlDbType.BigInt).Value = 0;
-
+                _groupCallBacksSqlCommandProduction.Parameters.Add("@CallBackUrl", SqlDbType.VarChar,-1).Direction = ParameterDirection.Output;
                 _groupCallBacksSqlCommandProduction.Parameters.Add("@Success", SqlDbType.Bit).Direction = ParameterDirection.Output;
                 _groupCallBacksSqlCommandProduction.Parameters.Add("@Message", SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
                 if (_groupCallBacksSqlConnectionProduction.State != ConnectionState.Open)
                     _groupCallBacksSqlConnectionProduction.Open();
                 _groupCallBacksSqlCommandProduction.ExecuteNonQuery();
-                if (!Convert.ToBoolean(_groupCallBacksSqlCommandProduction.Parameters["@Success"].Value))
+                if (!Convert.ToBoolean(_groupCallBacksSqlCommandProduction.Parameters["@Success"].Value.ToString()))
                     SharedClass.Logger.Error("Exception while inserting CallBack (False From DB) : " + _callBackObject.ToString() + ", Reason : " + _groupCallBacksSqlCommandProduction.Parameters["@Message"].Value);
+                else
+                {
+                    callbackUrl = _groupCallBacksSqlCommandProduction.Parameters["@CallBackUrl"].Value.ToString();
+                    SharedClass.Logger.Info("callbackUrl : " + callbackUrl);
+                    if(callbackUrl != "")
+                    {
+                        postData = new JObject(new JProperty("smscresponse", _callBackObject));
+                        WebRequest webReq = null;
+                        HttpWebResponse response = null;
+                        StreamReader sReader = null;
+                        StreamWriter sWriter = null;
+                        string httpAPIResponseString = "";
+                        try
+                        {
+                            webReq = WebRequest.Create(callbackUrl);
+                            webReq.Method = "POST";
+                            webReq.Timeout = 10000;
+                            webReq.ContentType = "application/x-www-form-urlencoded";
+                            sWriter = new StreamWriter(webReq.GetRequestStream());
+                            sWriter.Write(postData.ToString());
+                            sWriter.Flush();
+                            sWriter.Close();
+                            response = (HttpWebResponse)webReq.GetResponse();
+                            sReader = new StreamReader(response.GetResponseStream());
+                            httpAPIResponseString = sReader.ReadToEnd();
+                            SharedClass.Logger.Info("Notification Success. StatusCode: " + response.StatusCode);
+                            sReader.Close();
+                        }
+                        catch (WebException e)
+                        {
+                            if (e.Response != null)
+                                SharedClass.Logger.Error(string.Format("Notification Failed. StatusCode: {0}, Reason: {1}", ((HttpWebResponse)e.Response).StatusCode, e.ToString()));
+                            else
+                                SharedClass.Logger.Error(string.Format("Notification Failed. Reason: {0}", e.ToString()));
+                        }
+                        catch (Exception ex)
+                        {
+                            SharedClass.Logger.Error("Exception In Posting data to callback url : " + ex.ToString());
+                        }
+                    }
+                }
             }
             catch (Exception e)
             {
@@ -855,6 +902,14 @@ namespace VoiceController
             catch (Exception e)
             {
                 SharedClass.Logger.Error("Exception whil processing CallFlow : " + _callFlowObject.ToString() + ", Reason : " + e.ToString());
+            }
+        }
+
+        internal void DeQueueHangupData(int timeOutMilliSeconds, out BasicDeliverEventArgs args)
+        {
+            lock(this.hangupLazyConsumer)
+            {
+                this.hangupLazyConsumer.Queue.Dequeue(timeOutMilliSeconds, out args);
             }
         }
 

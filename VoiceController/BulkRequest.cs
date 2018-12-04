@@ -79,7 +79,7 @@ namespace VoiceController
                 sqlCmd = new System.Data.SqlClient.SqlCommand("Update BulkVoiceRequests with(rowlock) Set Status = @Status, Reason = @Reason Where Id = @BulkRequestId", sqlCon);
                 // + ((isDeQueued == true) ? 9 : 0).ToString() + " Where Id = " + this.id.ToString(), sqlCon);
                 sqlCmd.Parameters.Add("@Status", System.Data.SqlDbType.TinyInt).Value = isDeQueued == true ? 9 : 0;
-                sqlCmd.Parameters.Add("@Reason", System.Data.SqlDbType.VarChar, 500).Value = reason;
+                sqlCmd.Parameters.Add("@Reason", System.Data.SqlDbType.VarChar, -1).Value = reason;
                 sqlCmd.Parameters.Add("@BulkRequestId", System.Data.SqlDbType.BigInt).Value = this._id;
                 sqlCon.Open();
                 sqlCmd.ExecuteNonQuery();

@@ -5,7 +5,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{9A7972A5-1B31-41CC-B2DC-3CF82811ACE4}</ProjectGuid>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>VoiceController</RootNamespace>
     <AssemblyName>VoiceController</AssemblyName>
@@ -32,8 +32,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>
-    </StartupObject>
+    <StartupObject>VoiceController.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="HeartBeat, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">

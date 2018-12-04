@@ -29,6 +29,7 @@ namespace VoiceController
         private XmlDocument xmlDoc = null;
         private XmlElement rootElement = null;
         private byte retryAttempt = 0;
+        private byte _processedCount = 0;
 
         public bool IsRunning
         {
@@ -38,7 +39,7 @@ namespace VoiceController
             }
         }
 
-        public void Start()
+        public void Start(byte index)
         {
             this.sqlCon = new SqlConnection(SharedClass.GetConnectionString(Environment.PRODUCTION));
             this.sqlCmd = new SqlCommand("VC_Call_Hangup_Processor", this.sqlCon);
@@ -60,7 +61,7 @@ namespace VoiceController
             this.rootElement = this.xmlDoc.CreateElement("Call");
             this.xmlDoc.AppendChild((XmlNode)this.rootElement);
             Thread thread = !SharedClass.IsHangupProcessInMemory ? new Thread(new ThreadStart(this.StartRMQProcessing)) : new Thread(new ThreadStart(this.StartInMemoryProcessing));
-            thread.Name = "HangupDataProcessor";
+            thread.Name = "HangupDataProcessor_" + index.ToString();
             thread.Start();
         }
 
@@ -80,7 +81,6 @@ namespace VoiceController
 
             //This process has to deal with Serialization of Queue.
         }
-
         private void StartInMemoryProcessing()
         {
             SharedClass.Logger.Info("Started");
@@ -94,6 +94,12 @@ namespace VoiceController
                     if (this.hangupData != null)
                     {
                         this.ProcessHangUpObj();
+                        ++this._processedCount;
+                        if (this._processedCount == 50)
+                        {
+                            SharedClass.Logger.Info("Processed 50 CDR");
+                            this._processedCount = 0;
+                        }   
                     }
                 }
                 else
@@ -101,7 +107,6 @@ namespace VoiceController
             }
             this.isIamRunning = false;
         }
-
         private void ProcessHangupObjProduction()
         {
             this.retryAttempt = 0;
@@ -143,7 +148,6 @@ namespace VoiceController
                 }
             }
         }
-
         private void ProcessHangupObjStaging()
         {
             this.retryAttempt = 0;
@@ -186,8 +190,6 @@ namespace VoiceController
                 }
             }
         }
-
-
         private void ProcessGroupCallHangupObjStaging()
         {
             this.retryAttempt = 0;
@@ -237,7 +239,7 @@ namespace VoiceController
             {
                 try
                 {
-                    SharedClass.Logger.Info(" hanuUpObj XML Data: " + this.xmlDoc.InnerXml);
+                    //SharedClass.Logger.Info(" hanuUpObj XML Data: " + this.xmlDoc.InnerXml);
                     this.rootElement.Attributes.RemoveAll();
                     //foreach (JProperty jproperty in this.hangupData.Properties())
                     //    this.rootElement.SetAttribute(jproperty.Name, jproperty.Value.ToString());
@@ -273,7 +275,6 @@ namespace VoiceController
                 }
             }
         }
-
         public void StartRMQProcessing()
         {
             while (!SharedClass.RabbitMQClient.IsConnected && !SharedClass.HasStopSignal)
@@ -305,7 +306,8 @@ namespace VoiceController
                             SharedClass.Logger.Info("HangupDataConsumer Queue Is Nothing");
                             Thread.Sleep(10000);
                         }
-                        SharedClass.RabbitMQClient.hangupLazyConsumer.Queue.Dequeue(5000, out this.eventArgs);
+                        //SharedClass.RabbitMQClient.hangupLazyConsumer.Queue.Dequeue(5000, out this.eventArgs);
+                        SharedClass.RabbitMQClient.DeQueueHangupData(5000, out this.eventArgs);
                         if (this.eventArgs != null)
                         {
                             this.retryAttempt = 0;
@@ -313,6 +315,12 @@ namespace VoiceController
                             this.hangupData = JObject.Parse(this.message);
 
                             this.ProcessHangUpObj();
+                            ++this._processedCount;
+                            if (this._processedCount == 50)
+                            {
+                                SharedClass.Logger.Info("Processed 50 CDR");
+                                this._processedCount = 0;
+                            }   
                             SharedClass.RabbitMQClient.channel.BasicAck(this.eventArgs.DeliveryTag, false);
                             this.eventArgs = null;
                             break;
@@ -356,14 +364,14 @@ namespace VoiceController
 
         private void ProcessHangUpObj()
         {
-            SharedClass.Logger.Info("HangupObj Data is : " + this.hangupData.ToString());
+            //SharedClass.Logger.Info("HangupObj Data is : " + this.hangupData.ToString());
             try
             {
                 JToken token;
                 if (hangupData.SelectToken("smscresponse").SelectToken("source") != null)
                 {
                     token = hangupData.SelectToken("smscresponse").SelectToken("source").ToString();
-                    SharedClass.Logger.Info("source Token: " + token.ToString());
+                    //SharedClass.Logger.Info("source Token: " + token.ToString());
                     if (token.ToString().Equals(Environment.STAGING.ToString(), StringComparison.CurrentCultureIgnoreCase))
                         this.ProcessHangupObjStaging();
                     else if (token.ToString().Equals(Environment.PRODUCTION.ToString(), StringComparison.CurrentCultureIgnoreCase))
@@ -378,7 +386,7 @@ namespace VoiceController
                 else if (hangupData.SelectToken("smscresponse").SelectToken("Source") != null)
                 {
                     token = hangupData.SelectToken("smscresponse").SelectToken("Source").ToString();
-                    SharedClass.Logger.Info("Source Token: " + token.ToString());
+                    //SharedClass.Logger.Info("Source Token: " + token.ToString());
                     if (token.ToString().Equals(Environment.STAGING.ToString(), StringComparison.CurrentCultureIgnoreCase))
                         this.ProcessHangupObjStaging();
                     else if (token.ToString().Equals(Environment.PRODUCTION.ToString(), StringComparison.CurrentCultureIgnoreCase))
